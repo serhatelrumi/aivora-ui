@@ -1,13 +1,31 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* GLOBAL STYLES */
+/* Purpose: Base styles and CSS variables for the entire app */
+
+:root {
+  --gold: #D4AF37;
+  --gold-light: #E8CC6A;
+  --gold-dark: #B8931F;
+  --charcoal: #111214;
+  --charcoal-light: #1C1E22;
+  --charcoal-mid: #2A2D32;
+  --stone-gray: #E5E5E7;
+  --soft-white: #F9F8F6;
+  --text-light: #A0A4AE;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--soft-white);
+  color: var(--charcoal);
+}
+
+body.dark {
+  background-color: var(--charcoal);
+  color: var(--soft-white);
 }
