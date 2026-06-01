@@ -1,50 +1,33 @@
-// API CLIENT
-// Purpose: Base configuration for all API requests
-// All requests go through this file — token management is handled here
+const BASE_URL = 'http://127.0.0.1:8000';
 
-const BASE_URL = "http://127.0.0.1:8000";
+const getToken = () => localStorage.getItem('token');
 
-// Get token from localStorage
-const getToken = () => localStorage.getItem("token");
-
-// Main request function
 export const apiRequest = async (method, endpoint, body = null) => {
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  // Add token if available
+  const headers = { 'Content-Type': 'application/json' };
   const token = getToken();
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  if (token) headers['Authorization'] = 'Bearer ' + token;
 
-  const config = {
-    method,
-    headers,
-  };
+  const config = { method, headers };
+  if (body !== null) config.body = JSON.stringify(body);
 
-  if (body) {
-    config.body = JSON.stringify(body);
-  }
+  const response = await fetch(BASE_URL + endpoint, config);
 
-  const response = await fetch(`${BASE_URL}${endpoint}`, config);
-  const data = await response.json();
-
-  // If unauthorized, clear token and redirect to login
   if (response.status === 401) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.location.href = "/login";
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/login';
+    return;
   }
 
-  if (!response.ok) {
-    throw new Error(data.detail || "Bir hata olustu.");
-  }
+  let data;
+  try { data = await response.json(); } catch { data = {}; }
 
+  if (!response.ok) throw new Error(data.detail || 'Bir hata olustu.');
   return data;
 };
 
-export const get = (endpoint) => apiRequest("GET", endpoint);
-export const post = (endpoint, body) => apiRequest("POST", endpoint, body);
-export const patch = (endpoint, body) => apiRequest("PATCH", endpoint, body);
+export const get    = (ep)       => apiRequest('GET',    ep);
+export const post   = (ep, body) => apiRequest('POST',   ep, body);
+export const patch  = (ep, body) => apiRequest('PATCH',  ep, body);
+export const put    = (ep, body) => apiRequest('PUT',    ep, body);
+export const del    = (ep)       => apiRequest('DELETE', ep);
