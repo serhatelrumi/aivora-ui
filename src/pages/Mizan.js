@@ -64,7 +64,7 @@ const Mizan = () => {
 
   const kapanisOpts = kapanislar.map(k => ({
     value: k.id,
-    label: (DEPT_LABEL[k.department] || k.department) + ' · ' + k.tarih + ' · net ' + k.net_fark?.toFixed(3) + 'g',
+    label: (DEPT_LABEL[k.department] || k.department) + ' · ' + k.tarih + ' · net ' + k.net_fark?.toFixed(2) + 'g',
   }));
 
   const columns = [
@@ -83,7 +83,7 @@ const Mizan = () => {
     },
     {
       title: 'Tahmini Borç', dataIndex: 'toplam_tahmini_borc',
-      render: v => <span style={{ fontWeight: 600 }}>{v?.toFixed(2)} g has</span>,
+      render: v => <span style={{ fontWeight: 600 }}>{v != null ? (v / 0.995).toFixed(2) : '—'} g has</span>,
     },
     {
       title: 'Ayarevi Reel HAS', dataIndex: 'ayarevi_reel_has_degeri',
@@ -192,7 +192,7 @@ const Mizan = () => {
             rules={[{ required: true }]}
             extra="Haftalık eritme sonrası ayarevi tarafından bildirilen gerçek HAS değeri"
           >
-            <InputNumber min={0} step={0.0001} precision={4} style={{ width: '100%' }} placeholder="0.0000" />
+            <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} placeholder="0.00" />
           </Form.Item>
         </Form>
       </Modal>

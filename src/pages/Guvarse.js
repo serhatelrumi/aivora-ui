@@ -105,12 +105,12 @@ const Guvarse = () => {
     { title: 'Departman', dataIndex: 'department', render: v => <Tag color="blue">{DEPT_LABEL[v] || v}</Tag> },
     { title: 'Tarih', dataIndex: 'tarih', render: v => <span style={{ fontSize: 12 }}>{v}</span> },
     { title: 'Gram', dataIndex: 'gram', render: v => <span style={{ color: colors.gold, fontWeight: 600 }}>{v} gr</span> },
-    { title: 'Tahmini Ayar', dataIndex: 'tahmini_ayar', render: v => <span>{v ? (v * 100).toFixed(1) + '%' : '—'}</span> },
+    { title: 'Tahmini Ayar', dataIndex: 'tahmini_ayar', render: v => <span>{v ? (v * 100).toFixed(2) + '%' : '—'}</span> },
     {
       title: 'Tahmini HAS', dataIndex: 'tahmini_has_degeri',
       render: v => <span style={{ fontWeight: 600 }}>{v != null ? v.toFixed(2) + ' g' : '—'}</span>,
     },
-    { title: 'Reel Ayar', dataIndex: 'reel_ayar', render: v => v != null ? <Tag color="green">{(v * 100).toFixed(1)}%</Tag> : <span style={{ color: colors.subtext }}>—</span> },
+    { title: 'Reel Ayar', dataIndex: 'reel_ayar', render: v => v != null ? <Tag color="green">{(v * 100).toFixed(2)}%</Tag> : <span style={{ color: colors.subtext }}>—</span> },
     { title: 'Reel HAS', dataIndex: 'reel_has_degeri', render: v => v != null ? <span style={{ color: '#52C41A', fontWeight: 600 }}>{v.toFixed(2)} g</span> : <span style={{ color: colors.subtext }}>—</span> },
     {
       title: 'Vardiya', dataIndex: 'vardiya_kapanis_id',
@@ -170,7 +170,7 @@ const Guvarse = () => {
           <Row gutter={12}>
             <Col span={12}>
               <Form.Item name="gram" label="Gram" rules={[{ required: true }]}>
-                <InputNumber min={0.0001} step={0.1} precision={4} style={{ width: '100%' }} placeholder="0.0000" />
+                <InputNumber min={0.01} step={0.1} precision={2} style={{ width: '100%' }} placeholder="0.00" />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -190,7 +190,7 @@ const Guvarse = () => {
         {reelCtx.record && (
           <div style={{ marginBottom: 16, padding: '12px 16px', background: colors.bg, borderRadius: 8, fontSize: 12, color: colors.subtext }}>
             <strong style={{ color: colors.text }}>{DEPT_LABEL[reelCtx.record.department]} — {reelCtx.record.tarih}</strong>
-            <br />Tahmini: {reelCtx.record.gram} gr @ {(reelCtx.record.tahmini_ayar * 100).toFixed(1)}% = {reelCtx.record.tahmini_has_degeri?.toFixed(2)} g HAS
+            <br />Tahmini: {reelCtx.record.gram} gr @ {(reelCtx.record.tahmini_ayar * 100).toFixed(2)}% = {reelCtx.record.tahmini_has_degeri != null ? (reelCtx.record.tahmini_has_degeri / 0.995).toFixed(2) : '—'} g HAS
           </div>
         )}
         <Form form={rForm} layout="vertical">
@@ -202,7 +202,7 @@ const Guvarse = () => {
             </Col>
             <Col span={12}>
               <Form.Item name="reel_has_degeri" label="Reel HAS (g)" rules={[{ required: true }]}>
-                <InputNumber min={0} step={0.0001} precision={4} style={{ width: '100%' }} placeholder="0.0000" />
+                <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} placeholder="0.00" />
               </Form.Item>
             </Col>
           </Row>

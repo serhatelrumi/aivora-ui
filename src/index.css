@@ -29,3 +29,36 @@ body.dark {
   background-color: var(--charcoal);
   color: var(--soft-white);
 }
+
+/* Kontrol Merkezi — Kasa Stoku: 5 eşit sütun; alt satır 1+1+1+2 ünit */
+.kasa-stock-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.kasa-stock-grid > * {
+  min-width: 0;
+}
+
+.kasa-stock-grid .kasa-stock-span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 991px) {
+  .kasa-stock-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 575px) {
+  .kasa-stock-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kasa-stock-grid .kasa-stock-span-2 {
+    grid-column: span 1;
+  }
+}

@@ -6,6 +6,8 @@ import { CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTheme } from '../context/ThemeContext';
 import { getVardiyaDurum, createVardiyaKapanis, listVardiyaKapanis } from '../api/vardiya';
 import { getAllBalances } from '../api/dashboard';
+import { groupAltinByDepartment } from '../utils/balanceDisplay';
+import DeptStockTable from '../components/dashboard/DeptStockTable';
 
 const RENK = {
   kirmizi: { hex: '#FF4D4F', label: 'Tolerans Aşıldı',    canClose: false },
@@ -16,9 +18,6 @@ const RENK = {
 
 const DEPT_LABEL  = { kasa:'Kasa', ocak:'Ocak', pres:'Pres', kaynak:'Kaynak', pres_montaj:'Pres Montaj', cila:'Cila', ayarevi:'Ayar Evi', cnc:'CNC', kaliphane:'Kalıphane', dokum:'Döküm', dokum_montaj:'Döküm Montaj', ar_ge:'AR-GE', halka_kilit:'Halka Kilit', sarnel_kilit:'Sarnel Kilit', zincir:'Zincir', atolye:'Atölye', top:'Top' };
 const DURUM_LABEL = { ACIK:'Açık', KAPALI:'Kapalı', onaylandi:'Onaylandı', beklemede:'Beklemede', ONAYLANDI:'Onaylandı' };
-const PUR_LABEL   = { '8k':'8 Ayar','9k':'9 Ayar','10k':'10 Ayar','14k':'14 Ayar','18k':'18 Ayar','21k':'21 Ayar','22k':'22 Ayar','925':'925 Gümüş','altin_diger':'Altın Diğer' };
-const COLOR_LABEL = { yesil:'Yeşil', kirmizi:'Kırmızı', beyaz:'Beyaz' };
-
 const Vardiya = () => {
   const { colors } = useTheme();
 
@@ -45,13 +44,7 @@ const Vardiya = () => {
       ]);
       setDurum(d || []);
       setGecmis(g || []);
-      const map = {};
-      for (const b of (bals || [])) {
-        if (!b.department || b.department === 'kasa') continue;
-        if ((b.weight_grams || 0) <= 0) continue;
-        (map[b.department] = map[b.department] || []).push(b);
-      }
-      setBalanceMap(map);
+      setBalanceMap(groupAltinByDepartment(bals || [], { excludeKasa: true }));
     } catch { setError('Veriler yüklenemedi.'); }
     finally { setLoading(false); }
   };
@@ -165,37 +158,12 @@ const Vardiya = () => {
                     </Tooltip>
                   </div>
 
-                  {/* Per-purity breakdown */}
                   <div style={{ marginBottom: 10 }}>
-                    {(balanceMap[d.department] || []).length === 0 ? (
-                      <div style={{ color: colors.subtext, fontSize: 12, fontStyle: 'italic' }}>Bakiye yok</div>
-                    ) : (
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                        <thead>
-                          <tr style={{ color: colors.subtext, fontSize: 11 }}>
-                            <th style={{ textAlign: 'left', fontWeight: 400, paddingBottom: 4 }}>Ayar</th>
-                            <th style={{ textAlign: 'right', fontWeight: 400, paddingBottom: 4 }}>Ağırlık</th>
-                            <th style={{ textAlign: 'right', fontWeight: 400, paddingBottom: 4 }}>HAS</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(balanceMap[d.department] || []).map((b, i) => (
-                            <tr key={i}>
-                              <td style={{ color: colors.text, paddingBottom: 3 }}>
-                                {PUR_LABEL[b.purity] || b.purity}
-                                {b.color ? <span style={{ color: colors.subtext }}> · {COLOR_LABEL[b.color] || b.color}</span> : null}
-                              </td>
-                              <td style={{ textAlign: 'right', color: colors.text, paddingBottom: 3 }}>
-                                {b.weight_grams.toFixed(2)} gr
-                              </td>
-                              <td style={{ textAlign: 'right', color: colors.gold, fontWeight: 600, paddingBottom: 3 }}>
-                                {(b.has_balance || 0).toFixed(2)} g
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
+                    <DeptStockTable
+                      lines={balanceMap[d.department]}
+                      colors={colors}
+                      showFooter={false}
+                    />
                   </div>
 
                   {/* Footer: total + tolerance */}
@@ -260,7 +228,7 @@ const Vardiya = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid ' + colors.border, paddingTop: 8 }}>
                 <span style={{ color: colors.subtext }}>Net Fark:</span>
-                <span style={{ color: '#FAAD14', fontWeight: 700 }}>{confirmCtx.net_fark?.toFixed(2)} g has</span>
+                <span style={{ color: '#FAAD14', fontWeight: 700 }}>{confirmCtx.net_fark != null ? (confirmCtx.net_fark / 0.995).toFixed(2) : '—'} g has</span>
               </div>
             </div>
           </div>

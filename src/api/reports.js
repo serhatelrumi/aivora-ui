@@ -1,4 +1,4 @@
-import { get } from './client';
+import { get, post } from './client';
 
 export const getDepartmentReport = (department, startDate, endDate) =>
   get(`/reports/department/${department}?start_date=${startDate}&end_date=${endDate}`);
@@ -13,3 +13,11 @@ export const getEndOfDayReport   = (reportDate)   =>
 
 export const getHasVardiyaReport = (reportDate)   =>
   get(`/reports/has-vardiya?report_date=${reportDate}`);
+
+export const closeOperatingDay = (reportDate) =>
+  post(`/reports/close-day?report_date=${reportDate}`, {});
+
+export const listDayCloses = () => get('/reports/day-closes');
+
+export const getMasterSummary = (reportDate) =>
+  get(`/reports/master-summary?report_date=${reportDate}`);

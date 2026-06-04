@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Button, Tooltip } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -7,6 +7,7 @@ import {
   SunOutlined, MoonOutlined, LogoutOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined,
   TeamOutlined, FileTextOutlined, BellOutlined,
+  FireOutlined, BookOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -23,8 +24,25 @@ const ROLE_LABELS = {
   satis: 'Satış',
 };
 
+const formatBannerDate = (d) =>
+  d.toLocaleDateString('tr-TR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
+const formatBannerTime = (d) =>
+  d.toLocaleTimeString('tr-TR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
 const AppLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [now, setNow] = useState(() => new Date());
   const { user, handleLogout } = useAuth();
   const { darkMode, toggleDarkMode, colors } = useTheme();
   const navigate = useNavigate();
@@ -33,7 +51,7 @@ const AppLayout = ({ children }) => {
   const role = user?.role;
 
   const menuItems = [
-    { key: '/', icon: <DashboardOutlined />, label: 'Dashboard' },
+    { key: '/', icon: <DashboardOutlined />, label: 'Kontrol Merkezi' },
   ];
 
   if (['admin', 'kasa'].includes(role)) {
@@ -44,6 +62,12 @@ const AppLayout = ({ children }) => {
   }
   if (['admin', 'patron', 'fabrika_muduru'].includes(role)) {
     menuItems.push({ key: '/vardiya', icon: <FieldTimeOutlined />, label: 'Vardiya' });
+  }
+  if (['admin', 'patron', 'fabrika_muduru', 'kasa'].includes(role)) {
+    menuItems.push({ key: '/maden-ayarlama', icon: <FireOutlined />, label: 'Maden Ayarlama' });
+  }
+  if (['admin', 'patron', 'fabrika_muduru'].includes(role)) {
+    menuItems.push({ key: '/receteler', icon: <BookOutlined />, label: 'Reçeteler' });
   }
   if (['admin', 'patron'].includes(role)) {
     menuItems.push({ key: '/mizan', icon: <BarChartOutlined />, label: 'Mizan' });
@@ -56,6 +80,11 @@ const AppLayout = ({ children }) => {
   const selectedKey = location.pathname === '/'
     ? '/'
     : '/' + location.pathname.split('/')[1];
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(tick);
+  }, []);
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -120,6 +149,15 @@ const AppLayout = ({ children }) => {
             onClick={() => setCollapsed(!collapsed)}
             style={{ height: 64, width: 64, fontSize: 16, color: colors.subtext }}
           />
+          <div style={{ flex: 1 }} />
+          <div style={{ textAlign: 'right', marginRight: 20, lineHeight: 1.35, minWidth: 200 }}>
+            <div style={{ color: colors.text, fontSize: 13, fontWeight: 600 }}>
+              {formatBannerDate(now)}
+            </div>
+            <div style={{ color: colors.subtext, fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+              {formatBannerTime(now)}
+            </div>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Tooltip title={darkMode ? 'Aydınlık Mod' : 'Karanlık Mod'}>
               <Button

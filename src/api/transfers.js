@@ -10,3 +10,6 @@ export const createInitialStock = (data) => post('/transfers/initial-stock', dat
 export const deleteTransfer    = (id)        => del('/transfers/' + id);
 export const updateTransfer    = (id, data)  => patch('/transfers/' + id, data);
 export const restoreTransfer   = (id)        => post('/transfers/' + id + '/restore', {});
+
+export const listTransferHistory = (startDate, endDate) =>
+  get(`/transfers/history?start_date=${startDate}&end_date=${endDate}`);

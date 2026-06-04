@@ -16,6 +16,8 @@ import Mizan from './pages/Mizan';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Alarms from './pages/Alarms';
+import Receteler from './pages/Receteler';
+import MadenAyarlama from './pages/MadenAyarlama';
 
 const ThemedApp = () => {
   const { darkMode } = useTheme();
@@ -61,6 +63,16 @@ const ThemedApp = () => {
                       <Route path="/alarms" element={
                         <ProtectedRoute allowedRoles={['admin', 'patron']}>
                           <Alarms />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/receteler" element={
+                        <ProtectedRoute allowedRoles={['admin', 'patron', 'fabrika_muduru']}>
+                          <Receteler />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/maden-ayarlama" element={
+                        <ProtectedRoute allowedRoles={['admin', 'patron', 'fabrika_muduru', 'kasa']}>
+                          <MadenAyarlama />
                         </ProtectedRoute>
                       } />
                       <Route path="*" element={<Navigate to="/" replace />} />

@@ -22,7 +22,15 @@ export const apiRequest = async (method, endpoint, body = null) => {
   let data;
   try { data = await response.json(); } catch { data = {}; }
 
-  if (!response.ok) throw new Error(data.detail || 'Bir hata olustu.');
+  if (!response.ok) {
+    const detail = data?.detail;
+    let msg = 'Bir hata oluştu.';
+    if (typeof detail === 'string') msg = detail;
+    else if (Array.isArray(detail)) {
+      msg = detail.map((d) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d))).join(' ');
+    }
+    throw new Error(msg);
+  }
   return data;
 };
 

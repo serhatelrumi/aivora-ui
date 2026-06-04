@@ -14,6 +14,11 @@ const makeColors = (dark) => ({
   inputText:   dark ? '#FFFFFF' : '#111214',
   sider:       dark ? '#0D0F11' : '#FFFFFF',
   siderBorder: dark ? '#1C1E22' : '#E5E5E7',
+  poolBg:      dark ? '#161920' : '#EDE8E0',
+  poolBorder:  dark ? '#2E3340' : '#D4CCC0',
+  poolShadow:  dark
+    ? 'inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 20px rgba(0,0,0,0.25)'
+    : 'inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 12px rgba(17,18,20,0.06)',
 });
 
 export const ThemeProvider = ({ children }) => {
