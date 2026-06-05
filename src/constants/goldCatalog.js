@@ -61,6 +61,20 @@ PUR_LABEL['18k'] = '18K';
 PUR_LABEL['925'] = '925 Gümüş';
 PUR_LABEL.altin_diger = 'Has Altın (995)';
 
+/** Transfer formu — önce ayar, sonra renk */
+export const PURITY_SELECT_OPTIONS = [...UNCOLORED_PURITIES, ...COLORED_PURITIES].map((p) => ({
+  value: p,
+  label: PUR_LABEL[p] || p,
+}));
+
+export const GOLD_COLOR_OPTIONS = [
+  { value: 'yesil', label: 'Yeşil' },
+  { value: 'kirmizi', label: 'Kırmızı' },
+  { value: 'beyaz', label: 'Beyaz' },
+];
+
+export const purityRequiresColor = (purity) => COLORED_PURITIES.includes(purity);
+
 export const parseStockLineKey = (key) => {
   if (!key) return { purity: undefined, color: undefined };
   if (!key.includes('|')) return { purity: key, color: undefined };

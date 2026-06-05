@@ -2,6 +2,7 @@ import React from 'react';
 import { Drawer, Tag } from 'antd';
 import { purityLabel } from '../../constants/goldCatalog';
 import { DEPT_LABEL, MAT_LABEL, fmt, fmtHas995 } from '../../utils/reportLabels';
+import { durumTagColor, transferDurumLabel } from '../../constants/transferStatus';
 
 const PRODUCT_FORMS = [
   { value: 'has_altin', label: 'Has Altın' },
@@ -33,14 +34,14 @@ const PRODUCT_FORMS = [
 
 const FORM_LABEL = Object.fromEntries(PRODUCT_FORMS.map((f) => [f.value, f.label]));
 const COLOR_LABEL = { yesil: 'Yeşil', kirmizi: 'Kırmızı', beyaz: 'Beyaz' };
-const ST_COLOR = { beklemede: 'orange', onaylandi: 'success', reddedildi: 'error' };
-const ST_LABEL = { beklemede: 'Beklemede', onaylandi: 'Onaylandı', reddedildi: 'Reddedildi' };
 
 const durumTag = (r) => {
-  if (r.is_deleted) return <Tag color="error">Silindi</Tag>;
-  if (r.is_modified && r.status === 'onaylandi') return <Tag color="cyan">Onaylandı ✎</Tag>;
-  if (r.is_modified) return <Tag color="magenta">Değiştirildi</Tag>;
-  return <Tag color={ST_COLOR[r.status]}>{ST_LABEL[r.status] || r.status}</Tag>;
+  const color = durumTagColor(r);
+  return (
+    <Tag style={{ color: '#111214', background: color, borderColor: color }}>
+      {transferDurumLabel(r)}
+    </Tag>
+  );
 };
 
 const dtFmt = (v) => (v ? new Date(v).toLocaleString('tr-TR') : '—');
@@ -82,7 +83,6 @@ const TransferDetailDrawer = ({ record, onClose, colors }) => {
             {item('MADEN TÜRÜ', FORM_LABEL[r.product_form] || r.product_form || '—')}
             {item('OLUŞTURULMA', dtFmt(r.created_at))}
             {r.confirmed_at && item('ONAYLANDI', dtFmt(r.confirmed_at))}
-            {r.rejection_reason && item('RED NEDENİ', <span style={{ color: '#ff4d4f' }}>{r.rejection_reason}</span>)}
           </div>
 
           {r.notes && (

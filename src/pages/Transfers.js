@@ -1,27 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import {
   Table, Button, Tag, Modal, Form, Input, Select,
-  InputNumber, Tabs, Alert, Space, Tooltip, message, Popconfirm, Drawer, DatePicker,
+  InputNumber, Tabs, Alert, Space, Tooltip, message, Popconfirm, DatePicker,
 } from 'antd';
 import dayjs from 'dayjs';
 import {
-  PlusOutlined, CheckOutlined, CloseOutlined, DatabaseOutlined, ReloadOutlined,
+  PlusOutlined, CheckOutlined, DatabaseOutlined, ReloadOutlined,
   EditOutlined, DeleteOutlined, UndoOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import {
   listTransfers, listPending, createTransfer,
-  confirmTransfer, rejectTransfer, createInitialStock,
+  confirmTransfer, createInitialStock,
   deleteTransfer, updateTransfer, restoreTransfer, listTransferHistory,
 } from '../api/transfers';
 import {
   GOLD_STOCK_SELECT_OPTIONS,
-  GOLD_STOCK_LINES,
   parseStockLineKey,
   purityLabel,
-  lineKey,
+  PURITY_SELECT_OPTIONS,
+  GOLD_COLOR_OPTIONS,
+  purityRequiresColor,
 } from '../constants/goldCatalog';
+import TransferDetailDrawer from '../components/transfers/TransferDetailDrawer';
+import { TRANSFER_LEGEND, getTransferStatusDotColor } from '../constants/transferStatus';
 
 const DEPTS = [
   { value: 'kasa', label: 'Kasa' }, { value: 'ocak', label: 'Ocak' },
@@ -35,10 +38,6 @@ const DEPTS = [
   { value: 'top', label: 'Top' },
 ];
 
-const GOLD_PUR_OPTIONS = GOLD_STOCK_LINES.map((l) => ({
-  value: l.color ? `${l.purity}|${l.color}` : l.purity,
-  label: l.label,
-}));
 const FORMS = [
   { value: 'has_altin', label: 'Has Altın' },
   { value: 'ayarli_maden', label: 'Ayarlı Maden' },
@@ -67,26 +66,38 @@ const FORMS = [
   { value: 'hurda', label: 'Hurda' }, { value: 'numune', label: 'Numune' },
 ];
 
-const ST_COLOR = { beklemede: 'orange', onaylandi: 'success', reddedildi: 'error' };
-const ST_LABEL = { beklemede: 'Beklemede', onaylandi: 'Onaylandı', reddedildi: 'Reddedildi' };
+const StatusDot = ({ color }) => (
+  <span
+    style={{
+      display: 'inline-block',
+      width: 10,
+      height: 10,
+      borderRadius: '50%',
+      background: color,
+      boxShadow: '0 0 0 1px rgba(0,0,0,0.06)',
+      flexShrink: 0,
+    }}
+    aria-hidden
+  />
+);
 
-const rowStyle = (r) => {
-  if (r.is_deleted)  return { background: 'rgba(128,128,128,0.08)', opacity: 0.65, textDecoration: 'line-through' };
-  if (r.is_modified && r.status === 'onaylandi') return { background: 'rgba(0,188,188,0.07)' };
-  if (r.is_modified) return { background: 'rgba(250,140,0,0.08)' };
+const getRowStyle = (r) => {
+  if (r.is_deleted) return { opacity: 0.65, textDecoration: 'line-through' };
   return {};
 };
 
-const durumTag = (r) => {
-  if (r.is_deleted)  return <Tag color="error" style={tagStyle}>Silindi</Tag>;
-  if (r.is_modified && r.status === 'onaylandi') return <Tag color="cyan" style={tagStyle}>Onaylandı ✎</Tag>;
-  if (r.is_modified) return <Tag color="magenta" style={tagStyle}>Değiştirildi</Tag>;
-  return <Tag color={ST_COLOR[r.status]} style={tagStyle}>{ST_LABEL[r.status] || r.status}</Tag>;
-};
+const deptNotSameAs = (otherField) => ({ getFieldValue }) => ({
+  validator(_, value) {
+    const other = getFieldValue(otherField);
+    if (value && other && value === other) {
+      return Promise.reject(new Error('Gönderen ve alıcı aynı departman olamaz.'));
+    }
+    return Promise.resolve();
+  },
+});
 
 const DEPT_LABEL  = { kasa:'Kasa', ocak:'Ocak', pres:'Pres', kaynak:'Kaynak', pres_montaj:'Pres Montaj', cila:'Cila', ayarevi:'Ayar Evi', cnc:'CNC', kaliphane:'Kalıphane', dokum:'Döküm', dokum_montaj:'Döküm Montaj', ar_ge:'AR-GE', halka_kilit:'Halka Kilit', sarnel_kilit:'Sarnel Kilit', zincir:'Zincir', atolye:'Atölye', top:'Top' };
 const COLOR_LABEL = { yesil: 'Yeşil', kirmizi: 'Kırmızı', beyaz: 'Beyaz' };
-const MAT_LABEL   = { altin: 'Altın' };
 const FORM_LABEL  = Object.fromEntries(FORMS.map(f => [f.value, f.label]));
 
 const filterOpt = (input, opt) => opt.label.toLowerCase().includes(input.toLowerCase());
@@ -110,7 +121,6 @@ const Transfers = () => {
   const [error, setError]       = useState(null);
   const [createOpen, setCreate] = useState(false);
   const [stockOpen, setStock]   = useState(false);
-  const [rejectCtx, setReject]  = useState({ open: false, id: null });
   const [busy, setBusy]         = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [editCtx, setEditCtx]   = useState(null);
@@ -121,7 +131,6 @@ const Transfers = () => {
 
   const [cForm] = Form.useForm();
   const [sForm] = Form.useForm();
-  const [rForm] = Form.useForm();
   const [eForm] = Form.useForm();
 
   const role       = user?.role;
@@ -148,13 +157,15 @@ const Transfers = () => {
   const doCreate = async (vals) => {
     setBusy(true);
     try {
-      const { purity, color } = parseStockLineKey(vals.gold_line);
       await createTransfer({
-        ...vals,
+        from_department: vals.from_department,
+        to_department: vals.to_department,
         material_type: 'altin',
-        purity,
-        color,
+        purity: vals.purity,
+        color: vals.color || null,
         product_form: vals.product_form,
+        weight_grams: vals.weight_grams,
+        notes: vals.notes,
       });
       message.success('Transfer oluşturuldu.');
       setCreate(false); cForm.resetFields(); fetchAll();
@@ -167,18 +178,6 @@ const Transfers = () => {
       await confirmTransfer(id);
       message.success('Onaylandı.'); fetchAll();
     } catch (e) { message.error(e.message || 'Onaylama başarısız.'); }
-  };
-
-  const doReject = async () => {
-    const vals = await rForm.validateFields().catch(() => null);
-    if (!vals) return;
-    setBusy(true);
-    try {
-      await rejectTransfer(rejectCtx.id, vals.rejection_reason);
-      message.success('Reddedildi.');
-      setReject({ open: false, id: null }); rForm.resetFields(); fetchAll();
-    } catch (e) { message.error(e.message || 'Hata.'); }
-    finally { setBusy(false); }
   };
 
   const doDelete = async (id) => {
@@ -202,14 +201,12 @@ const Transfers = () => {
 
   const openEdit = (record) => {
     setEditCtx(record);
-    const gl = lineKey(record.purity, record.color);
     eForm.setFieldsValue({
       from_department: record.from_department,
       to_department:   record.to_department,
-      gold_line:       gl,
       material_type:   'altin',
       purity:          record.purity,
-      color:           record.color,
+      color:           record.color || undefined,
       product_form:    record.product_form,
       weight_grams:    record.weight_grams,
       notes:           record.notes,
@@ -219,13 +216,15 @@ const Transfers = () => {
   const doEdit = async (vals) => {
     setBusy(true);
     try {
-      const { purity, color } = parseStockLineKey(vals.gold_line);
       await updateTransfer(editCtx.id, {
-        ...vals,
+        from_department: vals.from_department,
+        to_department: vals.to_department,
         material_type: 'altin',
-        purity,
-        color,
+        purity: vals.purity,
+        color: vals.color || null,
         product_form: vals.product_form,
+        weight_grams: vals.weight_grams,
+        notes: vals.notes,
       });
       message.success('Transfer güncellendi.');
       setEditCtx(null); eForm.resetFields(); fetchAll();
@@ -272,6 +271,16 @@ const Transfers = () => {
       render: v => <span style={{ color: colors.subtext }}>#{v}</span>,
     }),
     tblCol({
+      title: '',
+      key: 'status_dot',
+      width: 28,
+      render: (_, r) => (
+        <span style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <StatusDot color={getTransferStatusDotColor(r)} />
+        </span>
+      ),
+    }),
+    tblCol({
       title: 'Gönderen', dataIndex: 'from_department', width: 112,
       sorter: (a, b) => (DEPT_LABEL[a.from_department] || a.from_department || '').localeCompare(DEPT_LABEL[b.from_department] || b.from_department || '', 'tr'),
       render: v => <Tag color="orange" style={tagStyle}>{DEPT_LABEL[v] || v || 'Dış Kaynak'}</Tag>,
@@ -282,13 +291,8 @@ const Transfers = () => {
       render: v => <Tag color="blue" style={tagStyle}>{DEPT_LABEL[v] || v || 'Kasa'}</Tag>,
     }),
     tblCol({
-      title: 'Maden', dataIndex: 'material_type', width: 58,
-      sorter: (a, b) => (MAT_LABEL[a.material_type] || a.material_type || '').localeCompare(MAT_LABEL[b.material_type] || b.material_type || '', 'tr'),
-      render: v => MAT_LABEL[v] || v || '—',
-    }),
-    tblCol({
-      title: 'Ayar', dataIndex: 'purity', width: 158,
-      render: (_, r) => purityLabel(r.purity, r.color),
+      title: 'Ayar', dataIndex: 'purity', width: 110,
+      render: (_, r) => purityLabel(r.purity, null),
     }),
     tblCol({
       title: 'Renk', dataIndex: 'color', width: 72,
@@ -298,11 +302,7 @@ const Transfers = () => {
         : <span style={{ color: colors.subtext }}>—</span>,
     }),
     tblCol({
-      title: 'Maden türü', dataIndex: 'product_form', width: 128,
-      render: v => FORM_LABEL[v] || v || '—',
-    }),
-    tblCol({
-      title: 'Ağırlık', dataIndex: 'weight_grams', width: 118,
+      title: 'Ağırlık', dataIndex: 'weight_grams', width: 100,
       sorter: (a, b) => (a.weight_grams || 0) - (b.weight_grams || 0),
       render: v => (
         <span style={{ color: colors.gold }}>
@@ -311,17 +311,7 @@ const Transfers = () => {
       ),
     }),
     tblCol({
-      title: 'HAS', dataIndex: 'has_value', width: 100,
-      sorter: (a, b) => (a.has_value || 0) - (b.has_value || 0),
-      render: v => (v != null ? `${(v / 0.995).toFixed(2)}\u00a0g` : '—'),
-    }),
-    tblCol({
-      title: 'Durum', dataIndex: 'status', width: 118,
-      sorter: (a, b) => (ST_LABEL[a.status] || a.status || '').localeCompare(ST_LABEL[b.status] || b.status || '', 'tr'),
-      render: (_, r) => durumTag(r),
-    }),
-    tblCol({
-      title: 'Saat', dataIndex: 'created_at', key: 'saat', width: 92,
+      title: 'Saat', dataIndex: 'created_at', key: 'saat', width: 88,
       sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at),
       render: v => (
         <span style={{ color: colors.subtext }}>
@@ -330,22 +320,26 @@ const Transfers = () => {
       ),
     }),
     tblCol({
-      title: 'Tarih', dataIndex: 'created_at', key: 'tarih', width: 102,
+      title: 'HAS', dataIndex: 'has_value', width: 88,
+      sorter: (a, b) => (a.has_value || 0) - (b.has_value || 0),
+      render: v => (
+        <span style={{ color: colors.gold }}>
+          {v != null ? `${(v / 0.995).toFixed(2)}\u00a0g` : '—'}
+        </span>
+      ),
+    }),
+    tblCol({
+      title: 'Tarih', dataIndex: 'created_at', key: 'tarih', width: 100,
       sorter: (a, b) => new Date(a.created_at) - new Date(b.created_at),
       render: v => <span style={{ color: colors.subtext }}>{new Date(v).toLocaleDateString('tr-TR')}</span>,
     }),
     withActions && tblCol({
-      title: 'İşlem', width: 88,
+      title: 'İşlem', width: 52,
       render: (_, r) => r.status === 'beklemede' ? (
-        <Space size={4}>
-          <Tooltip title="Onayla">
-            <Button size="small" icon={<CheckOutlined />} onClick={() => doConfirm(r.id)}
-              style={{ background: '#52C41A', borderColor: '#52C41A', color: '#fff' }} />
-          </Tooltip>
-          <Tooltip title="Reddet">
-            <Button danger size="small" icon={<CloseOutlined />} onClick={() => setReject({ open: true, id: r.id })} />
-          </Tooltip>
-        </Space>
+        <Tooltip title="Onayla">
+          <Button size="small" icon={<CheckOutlined />} onClick={(e) => { e.stopPropagation(); doConfirm(r.id); }}
+            style={{ background: '#22C55E', borderColor: '#22C55E', color: '#fff' }} />
+        </Tooltip>
       ) : null,
     }),
     isAdmin && tblCol({
@@ -360,14 +354,14 @@ const Transfers = () => {
               cancelText="Vazgeç"
             >
               <Tooltip title="Geri Al">
-                <Button size="small" icon={<UndoOutlined />} style={{ color: '#52C41A', borderColor: '#52C41A' }} />
+                <Button size="small" icon={<UndoOutlined />} onClick={(e) => e.stopPropagation()} style={{ color: '#52C41A', borderColor: '#52C41A' }} />
               </Tooltip>
             </Popconfirm>
           ) : (
             <>
               {r.status === 'beklemede' && (
                 <Tooltip title="Düzenle">
-                  <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(r)} />
+                  <Button size="small" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); openEdit(r); }} />
                 </Tooltip>
               )}
               <Popconfirm
@@ -380,7 +374,7 @@ const Transfers = () => {
                 okButtonProps={{ danger: true }}
               >
                 <Tooltip title="Sil">
-                  <Button danger size="small" icon={<DeleteOutlined />} />
+                  <Button danger size="small" icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
                 </Tooltip>
               </Popconfirm>
             </>
@@ -392,12 +386,11 @@ const Transfers = () => {
 
   const defaultProductForm = (purity) => (purity === 'has_995' ? 'has_altin' : 'ayarli_maden');
 
-  const applyGoldLine = (form, lineKeyVal) => {
-    const { purity, color } = parseStockLineKey(lineKeyVal);
+  const onPurityChange = (form, purity) => {
     form.setFieldsValue({
       material_type: 'altin',
       purity,
-      color: color || undefined,
+      color: undefined,
       product_form: defaultProductForm(purity),
     });
   };
@@ -410,37 +403,75 @@ const Transfers = () => {
     });
   };
 
-  const TransferFormFields = ({ form }) => (
-    <>
-      <Form.Item name="from_department" label="Gönderen" rules={[{ required: true }]}>
-        <Select options={DEPTS} placeholder="Gönderen departman" showSearch filterOption={filterOpt} />
-      </Form.Item>
-      <Form.Item name="to_department" label="Alıcı" rules={[{ required: true }]}>
-        <Select options={DEPTS} placeholder="Alıcı departman" showSearch filterOption={filterOpt} />
-      </Form.Item>
-      <Form.Item name="gold_line" label="Ayar" rules={[{ required: true }]}>
-        <Select
-          options={GOLD_PUR_OPTIONS}
-          placeholder="Ayar seçin"
-          showSearch
-          filterOption={filterOpt}
-          onChange={(v) => applyGoldLine(form, v)}
-        />
-      </Form.Item>
-      <Form.Item name="product_form" label="Maden türü" rules={[{ required: true }]} initialValue="ayarli_maden">
-        <Select options={FORMS} placeholder="Maden türü seçin" showSearch filterOption={filterOpt} />
-      </Form.Item>
-      <Form.Item name="material_type" hidden initialValue="altin"><Input /></Form.Item>
-      <Form.Item name="purity" hidden><Input /></Form.Item>
-      <Form.Item name="color" hidden><Input /></Form.Item>
-      <Form.Item name="weight_grams" label="Ağırlık (gr)" rules={[{ required: true }]}>
-        <InputNumber min={0.01} step={0.1} precision={2} style={{ width: '100%' }} placeholder="0.00" />
-      </Form.Item>
-      <Form.Item name="notes" label="Notlar">
-        <Input.TextArea rows={2} placeholder="İsteğe bağlı not..." />
-      </Form.Item>
-    </>
-  );
+  const TransferFormFields = ({ form }) => {
+    const purity = Form.useWatch('purity', form);
+    const showColor = purityRequiresColor(purity);
+
+    return (
+      <>
+        <Form.Item
+          name="from_department"
+          label="Gönderen"
+          rules={[{ required: true }, deptNotSameAs('to_department')]}
+          dependencies={['to_department']}
+        >
+          <Select
+            options={DEPTS}
+            placeholder="Gönderen departman"
+            showSearch
+            filterOption={filterOpt}
+            onChange={() => form.validateFields(['to_department'])}
+          />
+        </Form.Item>
+        <Form.Item
+          name="to_department"
+          label="Alıcı"
+          rules={[{ required: true }, deptNotSameAs('from_department')]}
+          dependencies={['from_department']}
+        >
+          <Select
+            options={DEPTS}
+            placeholder="Alıcı departman"
+            showSearch
+            filterOption={filterOpt}
+            onChange={() => form.validateFields(['from_department'])}
+          />
+        </Form.Item>
+        <Form.Item name="purity" label="Ayar" rules={[{ required: true, message: 'Ayar seçin.' }]}>
+          <Select
+            options={PURITY_SELECT_OPTIONS}
+            placeholder="Ayar seçin"
+            showSearch
+            filterOption={filterOpt}
+            onChange={(v) => onPurityChange(form, v)}
+          />
+        </Form.Item>
+        {showColor && (
+          <Form.Item
+            name="color"
+            label="Renk"
+            rules={[{ required: true, message: 'Renk seçin.' }]}
+          >
+            <Select
+              options={GOLD_COLOR_OPTIONS}
+              placeholder="Renk seçin"
+              allowClear={false}
+            />
+          </Form.Item>
+        )}
+        <Form.Item name="product_form" label="Maden türü" rules={[{ required: true }]} initialValue="ayarli_maden">
+          <Select options={FORMS} placeholder="Maden türü seçin" showSearch filterOption={filterOpt} />
+        </Form.Item>
+        <Form.Item name="material_type" hidden initialValue="altin"><Input /></Form.Item>
+        <Form.Item name="weight_grams" label="Ağırlık (gr)" rules={[{ required: true }]}>
+          <InputNumber min={0.01} step={0.1} precision={2} style={{ width: '100%' }} placeholder="0.00" />
+        </Form.Item>
+        <Form.Item name="notes" label="Notlar">
+          <Input.TextArea rows={2} placeholder="İsteğe bağlı not..." />
+        </Form.Item>
+      </>
+    );
+  };
 
   const StockFormFields = ({ form }) => (
     <>
@@ -470,7 +501,7 @@ const Transfers = () => {
       {error && <Alert message={error} type="error" closable style={{ marginBottom: 16 }} />}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h2 style={{ color: colors.text, fontWeight: 700, margin: 0 }}>Transferler</h2>
+        <h2 style={{ color: colors.text, fontWeight: 700, margin: 0, fontSize: 22 }}>Transferler</h2>
         <Space>
           <Button icon={<ReloadOutlined />} onClick={fetchAll} loading={loading}>Yenile</Button>
           {isAdmin && (
@@ -482,26 +513,35 @@ const Transfers = () => {
         </Space>
       </div>
 
+      <div style={{ display: 'flex', gap: 20, marginBottom: 12, flexWrap: 'wrap' }}>
+        {TRANSFER_LEGEND.map((item) => (
+          <span key={item.label} style={{ fontSize: 12, color: colors.subtext, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: item.hex, display: 'inline-block', flexShrink: 0 }} />
+            {item.label}
+          </span>
+        ))}
+      </div>
+
       <div style={cardStyle}>
         <Tabs
-          defaultActiveKey="all"
+          defaultActiveKey={role === 'kasa' ? 'pend' : 'all'}
           style={{ padding: '0 24px' }}
           items={[
             {
               key: 'all', label: 'Tümü',
               children: <Table dataSource={all} columns={columns(false)} rowKey="id"
                 loading={loading} size="small"
-                onRow={(r) => ({ style: { ...rowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
+                onRow={(r) => ({ style: { ...getRowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
                 pagination={{ pageSize, showSizeChanger: true, pageSizeOptions: ['20','50','100'], onShowSizeChange: (_, size) => setPageSize(size) }}
-                locale={{ emptyText: emptyActive }} scroll={{ x: 1500 }} tableLayout="fixed" />,
+                locale={{ emptyText: emptyActive }} scroll={{ x: 1096 }} tableLayout="fixed" />,
             },
             {
               key: 'pend', label: 'Beklemede (' + pend.length + ')',
               children: <Table dataSource={pend} columns={columns(true)} rowKey="id"
                 loading={loading} size="small"
-                onRow={(r) => ({ style: { ...rowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
+                onRow={(r) => ({ style: { ...getRowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
                 pagination={{ pageSize, showSizeChanger: true, pageSizeOptions: ['20','50','100'], onShowSizeChange: (_, size) => setPageSize(size) }}
-                locale={{ emptyText: 'Bekleyen transfer yok' }} scroll={{ x: 1580 }} tableLayout="fixed" />,
+                locale={{ emptyText: 'Bekleyen transfer yok' }} scroll={{ x: 1148 }} tableLayout="fixed" />,
             },
             ...(canHistory ? [{
               key: 'hist',
@@ -523,10 +563,10 @@ const Transfers = () => {
                   </div>
                   <Table dataSource={history} columns={columns(false)} rowKey="id"
                     loading={histLoading} size="small"
-                    onRow={(r) => ({ style: { ...rowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
+                    onRow={(r) => ({ style: { ...getRowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
                     pagination={{ pageSize: 20 }}
                     locale={{ emptyText: 'Arşivlenmiş transfer bulunamadı' }}
-                    scroll={{ x: 1500 }} tableLayout="fixed" />
+                    scroll={{ x: 1096 }} tableLayout="fixed" />
                 </div>
               ),
             }] : []),
@@ -534,62 +574,11 @@ const Transfers = () => {
         />
       </div>
 
-      {/* DETAIL DRAWER */}
-      <Drawer
-        title={detailRec ? `Transfer #${detailRec.id}` : ''}
-        open={!!detailRec}
+      <TransferDetailDrawer
+        record={detailRec}
         onClose={() => setDetail(null)}
-        width={420}
-        styles={{ body: { padding: '16px 20px' } }}
-      >
-        {detailRec && (() => {
-          const r = detailRec;
-          const dtFmt = (v) => v ? new Date(v).toLocaleString('tr-TR') : '—';
-          const item = (label, value) => (
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10, color: '#888', letterSpacing: 1, marginBottom: 2 }}>{label}</div>
-              <div style={{ fontSize: 13 }}>{value}</div>
-            </div>
-          );
-          return (
-            <div>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-                {durumTag(r)}
-                <Tag color="gold">{purityLabel(r.purity, r.color)}</Tag>
-                {r.color && <Tag>{COLOR_LABEL[r.color] || r.color}</Tag>}
-                {r.is_deleted && <Tag color="error">Silindi</Tag>}
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-                {item('GÖNDEREN', <Tag color="orange">{DEPT_LABEL[r.from_department] || r.from_department || 'Dış Kaynak'}</Tag>)}
-                {item('ALICI', <Tag color="blue">{DEPT_LABEL[r.to_department] || r.to_department || 'Kasa'}</Tag>)}
-                {item('MATERYAL', MAT_LABEL[r.material_type] || r.material_type)}
-                {item('AYAR', purityLabel(r.purity, r.color))}
-                {item('AĞIRLIK', <span style={{ color: '#D4AF37', fontWeight: 700 }}>{r.weight_grams?.toFixed(2)} gr</span>)}
-                {item('HAS', r.has_value != null ? <span style={{ fontWeight: 600 }}>{(r.has_value / 0.995).toFixed(2)} g</span> : '—')}
-                {item('MADEN TÜRÜ', FORM_LABEL[r.product_form] || r.product_form || '—')}
-                {item('OLUŞTURULMA', dtFmt(r.created_at))}
-                {r.confirmed_at && item('ONAYLANDI', dtFmt(r.confirmed_at))}
-                {r.rejection_reason && item('RED NEDENİ', <span style={{ color: '#ff4d4f' }}>{r.rejection_reason}</span>)}
-              </div>
-
-              {r.notes && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 10, color: '#888', letterSpacing: 1, marginBottom: 6 }}>NOTLAR</div>
-                  <div style={{
-                    background: 'rgba(128,128,128,0.08)',
-                    borderRadius: 6, padding: '10px 12px',
-                    fontSize: 12, lineHeight: 1.7,
-                    whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                  }}>
-                    {r.notes}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </Drawer>
+        colors={colors}
+      />
 
       {/* CREATE */}
       <Modal title="Yeni Transfer" open={createOpen}
@@ -608,18 +597,6 @@ const Transfers = () => {
         confirmLoading={busy} width={520}>
         <Form form={sForm} layout="vertical" onFinish={doStock} style={{ marginTop: 16 }}>
           <StockFormFields form={sForm} />
-        </Form>
-      </Modal>
-
-      {/* REJECT */}
-      <Modal title="Transfer Reddet" open={rejectCtx.open}
-        onCancel={() => { setReject({ open: false, id: null }); rForm.resetFields(); }}
-        onOk={doReject} okText="Reddet" okButtonProps={{ danger: true }}
-        cancelText="İptal" confirmLoading={busy}>
-        <Form form={rForm} layout="vertical" style={{ marginTop: 16 }}>
-          <Form.Item name="rejection_reason" label="Red Nedeni" rules={[{ required: true, message: 'Gerekli.' }]}>
-            <Input.TextArea rows={3} placeholder="Transfer neden reddediliyor?" />
-          </Form.Item>
         </Form>
       </Modal>
 

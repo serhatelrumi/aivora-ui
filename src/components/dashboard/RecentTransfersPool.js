@@ -6,9 +6,7 @@ import { purityLabel } from '../../constants/goldCatalog';
 import { DEPT_LABEL, fmt, fmtHas995 } from '../../utils/reportLabels';
 import WidgetPool from './WidgetPool';
 import TransferDetailDrawer from '../transfers/TransferDetailDrawer';
-
-const ST_COLOR = { beklemede: 'orange', onaylandi: 'success', reddedildi: 'error' };
-const ST_LABEL = { beklemede: 'Beklemede', onaylandi: 'Onaylandı', reddedildi: 'Reddedildi' };
+import { durumTagColor, transferDurumLabel } from '../../constants/transferStatus';
 
 const TBL_FONT = 12;
 const TBL_CELL = { fontSize: TBL_FONT, whiteSpace: 'nowrap' };
@@ -28,10 +26,12 @@ const rowStyle = (r) => {
 };
 
 const durumTag = (r) => {
-  if (r.is_deleted) return <Tag color="error" style={tagStyle}>Silindi</Tag>;
-  if (r.is_modified && r.status === 'onaylandi') return <Tag color="cyan" style={tagStyle}>Onaylandı ✎</Tag>;
-  if (r.is_modified) return <Tag color="magenta" style={tagStyle}>Değiştirildi</Tag>;
-  return <Tag color={ST_COLOR[r.status]} style={tagStyle}>{ST_LABEL[r.status] || r.status}</Tag>;
+  const color = durumTagColor(r);
+  return (
+    <Tag style={{ ...tagStyle, color: '#111214', background: color, borderColor: color }}>
+      {transferDurumLabel(r)}
+    </Tag>
+  );
 };
 
 const sortRecent = (list) =>
