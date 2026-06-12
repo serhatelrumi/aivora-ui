@@ -77,21 +77,21 @@ const MadenAyarlama = () => {
   let toplamGram, hasGram, safAltinGram;
 
   if (inputMode === 'has') {
-    // Kullanıcı Has Altın (995) gramını giriyor → toplam alaşım hesaplanıyor
+    // User enters has gold (995) grams → total alloy is computed
     hasGram     = hasGramInput;
     safAltinGram = (hasGram && hasGram > 0) ? hasGram * HAS_ALTIN_PURITY : null;
     toplamGram  = (safAltinGram && hasRatio) ? safAltinGram / hasRatio : null;
   } else {
-    // Kullanıcı hedef toplam alaşım gramını giriyor → Has Altın ihtiyacı hesaplanıyor
+    // User enters target total alloy grams → required has gold is computed
     toplamGram = (toplamGramInput && toplamGramInput > 0) ? toplamGramInput : null;
     if (toplamGram && receteObj) {
-      // Reçetede altın oranı varsa oradan hesapla; yoksa purity üzerinden tahmin et
+      // If the recipe has a gold ratio, use it; otherwise estimate from purity
       const altinRow = receteObj.malzemeler.find(m => m.malzeme === 'altin');
       hasGram = altinRow
         ? toplamGram * (altinRow.oran / 100)
         : (hasRatio ? toplamGram * hasRatio / HAS_ALTIN_PURITY : null);
     } else if (toplamGram && hasRatio) {
-      // Reçete seçilmemişse purity üzerinden has altın tahmini göster
+      // If no recipe is selected, show a has-gold estimate based on purity
       hasGram = toplamGram * hasRatio / HAS_ALTIN_PURITY;
     } else {
       hasGram = null;
@@ -99,11 +99,11 @@ const MadenAyarlama = () => {
     safAltinGram = (hasGram && hasGram > 0) ? hasGram * HAS_ALTIN_PURITY : null;
   }
 
-  // Malzeme gram dökümü
+  // Per-material gram breakdown
   const malzemeGramlar = (toplamGram && receteObj)
     ? (() => {
         if (inputMode === 'has') {
-          // Has Altın miktarı sabit kalır, diğerleri orana göre dağılır
+          // Has-gold amount stays fixed; the rest is distributed by ratio
           const hasAltinRow  = receteObj.malzemeler.find(m => m.malzeme === 'altin');
           if (hasAltinRow && hasGram) {
             const otherRows    = receteObj.malzemeler.filter(m => m.malzeme !== 'altin');
@@ -118,7 +118,7 @@ const MadenAyarlama = () => {
           }
           return receteObj.malzemeler.map(m => ({ ...m, gram: toplamGram * (m.oran / 100) }));
         } else {
-          // Toplam alaşım sabit; her malzeme direkt oran × toplam
+          // Total alloy is fixed; each material = ratio × total directly
           return receteObj.malzemeler.map(m => ({ ...m, gram: toplamGram * (m.oran / 100) }));
         }
       })()

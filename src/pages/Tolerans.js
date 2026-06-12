@@ -33,7 +33,7 @@ const Tolerans = () => {
     setLoading(true);
     try {
       const data = await getAllDeptSettings();
-      // API'den gelenleri map'e al, tüm departmanları göster
+      // Map the API results, then show every department
       const map = Object.fromEntries((data || []).map(s => [s.department, s]));
       const merged = ALL_DEPTS.map(dept => map[dept] || { department: dept, tolerance_grams: null, updated_at: null, id: dept });
       setSettings(merged);

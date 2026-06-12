@@ -5,14 +5,14 @@ const getToken = () => localStorage.getItem('token');
 export const apiRequest = async (method, endpoint, body = null) => {
   const headers = { 'Content-Type': 'application/json' };
   const token = getToken();
-  if (token) headers['Authorization'] = 'Bearer ' + token;
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const config = { method, headers };
   if (body !== null) config.body = JSON.stringify(body);
 
   let response;
   try {
-    response = await fetch(BASE_URL + endpoint, config);
+    response = await fetch(`${BASE_URL}${endpoint}`, config);
   } catch {
     throw new Error('Sunucuya bağlanılamadı. Backend (port 8000) çalışıyor mu?');
   }

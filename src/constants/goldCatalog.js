@@ -49,7 +49,7 @@ export const UNCOLORED_PURITIES = ['has_995', '22k', '21k'];
 export const PUR_LABEL = Object.fromEntries(
   GOLD_STOCK_LINES.map((l) => [lineKey(l.purity, l.color), l.label]),
 );
-// Tekil purity anahtarı (renksiz satırlar + geriye dönük)
+// Single purity key (colorless rows + backward compatibility)
 PUR_LABEL.has_995 = 'Has Altın (995)';
 PUR_LABEL['22k'] = '22K (916)';
 PUR_LABEL['21k'] = '21K (875)';

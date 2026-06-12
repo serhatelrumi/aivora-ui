@@ -35,7 +35,7 @@ const malzemeLabel = (m) => MALZEME_OPTIONS.find(o => o.value === m)?.label || m
 
 const EMPTY_ROW = { malzeme: undefined, oran: undefined };
 
-// Has Altın 995 için gerçek saf altın karşılığı 0.995, diğerleri 1.0
+// For has gold 995 the real fine-gold factor is 0.995; everything else is 1.0
 const getMalzemePurity = (malzeme) => malzeme === 'altin' ? 0.995 : 1.0;
 
 const Receteler = () => {
@@ -50,7 +50,7 @@ const Receteler = () => {
   const [editing, setEditing]     = useState(null);
   const [saving, setSaving]       = useState(false);
 
-  // 'percent' | 'gram' — gram modunda gramValues üzerinden % hesaplanır
+  // 'percent' | 'gram' — in gram mode, % is computed from gramValues
   const [inputMode, setInputMode] = useState('percent');
   const [gramValues, setGramValues] = useState([0]);
 
@@ -99,8 +99,8 @@ const Receteler = () => {
     setModalOpen(true);
   };
 
-  // Gram modunda: bir gram değişince tüm oran alanlarını güncelle
-  // Has Altın (altin) için etkili değer = gram × 0.995, diğerleri = gram × 1.0
+  // Gram mode: when one gram value changes, update all ratio fields.
+  // Effective value for has gold (altin) = gram × 0.995; others = gram × 1.0
   const handleGramChange = (index, value, overrideMalzeme = null) => {
     const newGrams = [...gramValues];
     newGrams[index] = value || 0;
@@ -121,7 +121,7 @@ const Receteler = () => {
     }
   };
 
-  // Mod değiştiğinde gram değerlerini sıfırla
+  // Reset gram values when the mode changes
   const handleModeChange = (e) => {
     setInputMode(e.target.value);
     const count = form.getFieldValue('malzemeler')?.length || 1;
