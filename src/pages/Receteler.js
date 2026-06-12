@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Row, Col, Button, Modal, Form, Input, Select, InputNumber,
-  Popconfirm, Tag, Spin, Alert, Tooltip, Divider, Radio,
+  Popconfirm, Tag, Spin, Alert, Tooltip, Divider, Radio, message,
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, ExperimentOutlined,
@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getReceteler, createRecete, updateRecete, deleteRecete } from '../api/receteler';
+import { fmtRecipe, recipePercentInputProps, recipeGramInputProps } from '../utils/recipeFormat';
 
 const { Option } = Select;
 
@@ -32,9 +33,6 @@ const MALZEME_OPTIONS = [
 const malzemeColor = (m) => MALZEME_OPTIONS.find(o => o.value === m)?.color || '#8B8B8B';
 const malzemeLabel = (m) => MALZEME_OPTIONS.find(o => o.value === m)?.label || m;
 
-const fmt = (n, d = 2) => typeof n === 'number'
-  ? n.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
-
 const EMPTY_ROW = { malzeme: undefined, oran: undefined };
 
 // Has Altın 995 için gerçek saf altın karşılığı 0.995, diğerleri 1.0
@@ -57,8 +55,7 @@ const Receteler = () => {
   const [gramValues, setGramValues] = useState([0]);
 
   const [form] = Form.useForm();
-  const hedefAyar        = Form.useWatch('hedef_ayar', form);
-  const malzemelerWatch  = Form.useWatch('malzemeler', form);
+  const hedefAyar = Form.useWatch('hedef_ayar', form);
 
   const card = {
     background: colors.card, border: '1px solid ' + colors.border,
@@ -118,7 +115,7 @@ const Receteler = () => {
       form.setFieldsValue({
         malzemeler: items.map((item, i) => ({
           ...item,
-          oran: parseFloat((effectives[i] / totalEff * 100).toFixed(4)),
+          oran: parseFloat((effectives[i] / totalEff * 100).toFixed(3)),
         })),
       });
     }
@@ -131,9 +128,20 @@ const Receteler = () => {
     setGramValues(Array(count).fill(0));
   };
 
+  const validateMalzemeTotal = (items) => {
+    if (!items?.length) throw new Error('En az bir malzeme ekleyin.');
+    const total = items.reduce((s, i) => s + (Number(i?.oran) || 0), 0);
+    if (Math.abs(total - 100) > 0.01) {
+      throw new Error(`Toplam ${fmtRecipe(total)}% — 100% olmalı.`);
+    }
+  };
+
   const handleSave = async () => {
     try {
       const vals = await form.validateFields();
+      if (inputMode === 'percent') {
+        validateMalzemeTotal(vals.malzemeler);
+      }
       setSaving(true);
       const payload = {
         ad: vals.ad,
@@ -150,7 +158,8 @@ const Receteler = () => {
       setModalOpen(false);
       load();
     } catch (e) {
-      if (e?.errorFields) return; // form validation
+      if (e?.errorFields) return;
+      message.error(e.message || 'Kaydedilemedi.');
       setError(e.message);
     } finally {
       setSaving(false);
@@ -283,21 +292,14 @@ const Receteler = () => {
           </Row>
 
           {/* DYNAMIC INGREDIENT ROWS */}
-          <Form.List name="malzemeler"
-            rules={[{
-              validator: async (_, items) => {
-                if (!items || !items.length) throw new Error('En az bir malzeme ekleyin.');
-                const total = items.reduce((s, i) => s + (i?.oran || 0), 0);
-                if (Math.abs(total - 100) > 0.5)
-                  throw new Error(`Toplam ${fmt(total)}% — 100% olmalı.`);
-              }
-            }]}
-          >
-            {(fields, { add, remove }, { errors }) => {
-              // Etkin değerler: altin × 0.995, diğerleri × 1.0
-              const effectives   = gramValues.map((g, i) =>
-                (g || 0) * getMalzemePurity((malzemelerWatch || [])[i]?.malzeme)
-              );
+          <Form.List name="malzemeler">
+            {(fields, { add, remove }) => {
+              const items = form.getFieldValue('malzemeler') || [];
+              const effectives = inputMode === 'gram'
+                ? gramValues.map((g, i) =>
+                  (g || 0) * getMalzemePurity(items[i]?.malzeme),
+                )
+                : [];
               const totalEff = effectives.reduce((s, e) => s + e, 0);
               return (
                 <>
@@ -345,8 +347,8 @@ const Receteler = () => {
                             <Form.Item name={[name, 'oran']} noStyle
                               rules={[{ required: true, message: 'Oran girin' }]}>
                               <InputNumber
-                                min={0.01} max={100} step={0.1} precision={2}
-                                placeholder="%" style={{ width: '100%' }}
+                                {...recipePercentInputProps}
+                                placeholder="0,000" style={{ width: '100%' }}
                                 addonAfter="%"
                               />
                             </Form.Item>
@@ -360,13 +362,13 @@ const Receteler = () => {
                               <InputNumber
                                 value={gramValues[name] || null}
                                 onChange={(v) => handleGramChange(name, v)}
-                                min={0.001} step={0.1} precision={2}
-                                placeholder="0.00" style={{ flex: 1, minWidth: 0 }}
+                                {...recipeGramInputProps}
+                                placeholder="0,000" style={{ flex: 1, minWidth: 0 }}
                                 addonAfter="gr"
                               />
-                              <Tag style={{ margin: 0, flexShrink: 0, minWidth: 48, textAlign: 'center', fontSize: 11 }}
+                              <Tag style={{ margin: 0, flexShrink: 0, minWidth: 56, textAlign: 'center', fontSize: 11 }}
                                 color={totalEff > 0 ? 'gold' : 'default'}>
-                                %{computedPct.toFixed(2)}
+                                %{fmtRecipe(computedPct)}
                               </Tag>
                             </div>
                           </Col>
@@ -397,7 +399,6 @@ const Receteler = () => {
                   >
                     Malzeme Ekle
                   </Button>
-                  <Form.ErrorList errors={errors} />
                 </>
               );
             }}
@@ -457,7 +458,7 @@ const ReceteCard = ({ recete, colors, isAdmin, onEdit, onDelete }) => {
       {/* Percentage bar */}
       <div style={{ display: 'flex', borderRadius: 4, overflow: 'hidden', height: 8, marginBottom: 10 }}>
         {recete.malzemeler.map((m, i) => (
-          <Tooltip key={i} title={`${malzemeLabel(m.malzeme)}: ${fmt(m.oran)}%`}>
+          <Tooltip key={i} title={`${malzemeLabel(m.malzeme)}: ${fmtRecipe(m.oran)}%`}>
             <div style={{
               width: `${(m.oran / total) * 100}%`,
               background: malzemeColor(m.malzeme),
@@ -477,7 +478,7 @@ const ReceteCard = ({ recete, colors, isAdmin, onEdit, onDelete }) => {
             </div>
             <Tag style={{ margin: 0, fontSize: 10, padding: '0 6px', lineHeight: '18px' }}
               color="default">
-              %{fmt(m.oran)}
+              %{fmtRecipe(m.oran)}
             </Tag>
           </div>
         ))}

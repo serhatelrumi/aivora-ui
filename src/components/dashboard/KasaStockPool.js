@@ -9,6 +9,20 @@ const HAS_PURITIES = new Set(['has_995', 'altin_diger']);
 
 const fmt = (n) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+/** "14K Kırmızı (585)" → kalın isim + normal millesimal */
+const OtherStockLabel = ({ label, colors }) => {
+  const paren = label.indexOf(' (');
+  if (paren === -1) {
+    return <strong style={{ color: colors.text, fontWeight: 700 }}>{label}</strong>;
+  }
+  return (
+    <span style={{ whiteSpace: 'nowrap' }}>
+      <strong style={{ color: colors.text, fontWeight: 700 }}>{label.slice(0, paren)}</strong>
+      <span style={{ color: colors.subtext, fontWeight: 400 }}>{label.slice(paren)}</span>
+    </span>
+  );
+};
+
 /** Rapor/transfer ile uyumlu: has_balance → g has gösterimi */
 const toDisplayHas = (b) => {
   if (b.has_balance != null && b.has_balance > 0) return b.has_balance / 0.995;
@@ -189,13 +203,8 @@ const OtherStockWidget = ({ lines, colors }) => (
       <span style={{ color: colors.subtext, fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>HAS</span>
       {lines.map((row) => (
         <React.Fragment key={row.key}>
-          <span style={{
-            color: colors.text,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {row.label}
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <OtherStockLabel label={row.label} colors={colors} />
           </span>
           <span style={{ color: '#D4AF37', fontWeight: 600, textAlign: 'right', whiteSpace: 'nowrap' }}>
             {fmt(row.grams)} gr

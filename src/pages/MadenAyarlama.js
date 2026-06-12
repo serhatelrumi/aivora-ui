@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Row, Col, Form, Select, InputNumber, Divider, Spin, Alert, Empty, Tag, Button, Popconfirm, message, Segmented } from 'antd';
 import { ExperimentOutlined, SendOutlined, SwapOutlined } from '@ant-design/icons';
 import { useTheme } from '../context/ThemeContext';
-import { getReceteler } from '../api/receteler';
-import { createTransfer } from '../api/transfers';
-import { PURITY_HAS_RATIO, COLORED_PURITIES } from '../constants/goldCatalog';
+import { getReceteler, sendMadenAyarlama } from '../api/receteler';
+import { PURITY_HAS_RATIO } from '../constants/goldCatalog';
+import { fmtRecipe, recipeGramInputProps } from '../utils/recipeFormat';
 
 const { Option } = Select;
 
@@ -25,9 +25,6 @@ const MALZEME_LABELS = {
 };
 
 const HAS_ALTIN_PURITY = 0.995;
-
-const fmt = (n, d = 2) => typeof n === 'number'
-  ? n.toLocaleString('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
 
 const MadenAyarlama = () => {
   const { colors } = useTheme();
@@ -128,28 +125,21 @@ const MadenAyarlama = () => {
     : [];
 
   const handleSend = async () => {
-    if (!toplamGram || !secilenAyar || !receteObj) return;
+    if (!toplamGram || !secilenAyar || !receteObj || !hasGram) return;
     try {
       setSending(true);
-      const payload = {
-        from_department: 'kasa',
-        to_department:   'ocak',
-        material_type:   'altin',
-        purity:          secilenAyar,
-        product_form:    'ayarli_maden',
-        weight_grams:    Math.round(toplamGram * 100) / 100,
-        notes: [
-          `Maden Ayarlama: ${receteObj.ad}`,
-          ...malzemeGramlar.map(m => `${MALZEME_LABELS[m.malzeme] || m.malzeme}: ${fmt(m.gram)} gr`),
-        ].join('\n'),
-      };
-      if (COLORED_PURITIES.includes(secilenAyar) && receteObj.hedef_renk) {
-        payload.color = receteObj.hedef_renk;
-      }
-      await createTransfer(payload);
-      message.success('Transfer oluşturuldu — Ocak onayı bekleniyor.');
+      await sendMadenAyarlama({
+        recete_id: receteObj.id,
+        input_mode: inputMode,
+        has_grams: inputMode === 'has' ? hasGram : null,
+        toplam_grams: inputMode === 'toplam' ? toplamGram : null,
+        to_department: 'ocak',
+      });
+      message.success(
+        'Maden ayarlandı ve transfer oluşturuldu — kasada has düşüldü, ayarlı stok oluştu. Ocak onayı bekleniyor.',
+      );
     } catch (e) {
-      message.error(e.message || 'Transfer oluşturulamadı.');
+      message.error(e.message || 'Maden ayarlama / transfer başarısız.');
     } finally {
       setSending(false);
     }
@@ -214,8 +204,8 @@ const MadenAyarlama = () => {
                   <InputNumber
                     value={hasGramInput}
                     onChange={setHasGramInput}
-                    min={0.01} step={0.5} precision={2}
-                    placeholder="örn. 1000.00"
+                    {...recipeGramInputProps}
+                    placeholder="örn. 1000,000"
                     style={{ width: '100%' }}
                     size="large"
                     addonAfter="gr"
@@ -228,8 +218,8 @@ const MadenAyarlama = () => {
                   <InputNumber
                     value={toplamGramInput}
                     onChange={setToplamGramInput}
-                    min={0.01} step={0.5} precision={2}
-                    placeholder="örn. 1860.00"
+                    {...recipeGramInputProps}
+                    placeholder="örn. 1860,000"
                     style={{ width: '100%' }}
                     size="large"
                     addonAfter="gr"
@@ -251,7 +241,7 @@ const MadenAyarlama = () => {
                     <Option key={a} value={a}>
                       <strong>{PURITY_LABELS[a]}</strong>
                       <span style={{ color: colors.subtext, fontSize: 11, marginLeft: 6 }}>
-                        ({(PURITY_HAS[a] * 100).toFixed(2)}% has)
+                        ({fmtRecipe(PURITY_HAS[a] * 100)}% has)
                       </span>
                     </Option>
                   ))}
@@ -300,19 +290,19 @@ const MadenAyarlama = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: colors.subtext, fontSize: 11 }}>Saf altın eşdeğeri (×0.995)</span>
                         <span style={{ color: '#D4AF37', fontWeight: 700, fontSize: 13 }}>
-                          {safAltinGram ? fmt(safAltinGram) + ' g has' : '—'}
+                          {safAltinGram ? fmtRecipe(safAltinGram) + ' g has' : '—'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: colors.subtext, fontSize: 11 }}>Hedef ayar has oranı</span>
                         <span style={{ color: colors.subtext, fontSize: 13 }}>
-                          %{(PURITY_HAS[secilenAyar] * 100).toFixed(2)}
+                          %{fmtRecipe(PURITY_HAS[secilenAyar] * 100)}
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #D4AF3730', paddingTop: 5 }}>
                         <span style={{ color: colors.subtext, fontSize: 11 }}>Toplam alaşım ağırlığı</span>
                         <span style={{ color: colors.text, fontWeight: 700, fontSize: 13 }}>
-                          {toplamGram ? fmt(toplamGram) + ' gr' : '—'}
+                          {toplamGram ? fmtRecipe(toplamGram) + ' gr' : '—'}
                         </span>
                       </div>
                     </>
@@ -321,19 +311,19 @@ const MadenAyarlama = () => {
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: colors.subtext, fontSize: 11 }}>Hedef ayar has oranı</span>
                         <span style={{ color: colors.subtext, fontSize: 13 }}>
-                          %{(PURITY_HAS[secilenAyar] * 100).toFixed(2)}
+                          %{fmtRecipe(PURITY_HAS[secilenAyar] * 100)}
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: colors.subtext, fontSize: 11 }}>Saf altın içeriği</span>
                         <span style={{ color: '#D4AF37', fontWeight: 700, fontSize: 13 }}>
-                          {safAltinGram ? fmt(safAltinGram) + ' g has' : '—'}
+                          {safAltinGram ? fmtRecipe(safAltinGram) + ' g has' : '—'}
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #D4AF3730', paddingTop: 5 }}>
                         <span style={{ color: colors.subtext, fontSize: 11 }}>Gerekli Has Altın (995)</span>
                         <span style={{ color: colors.text, fontWeight: 700, fontSize: 13 }}>
-                          {hasGram ? fmt(hasGram) + ' gr' : '—'}
+                          {hasGram ? fmtRecipe(hasGram) + ' gr' : '—'}
                         </span>
                       </div>
                     </>
@@ -393,20 +383,20 @@ const MadenAyarlama = () => {
                       <>
                         <div style={{ color: colors.subtext, fontSize: 10, letterSpacing: 1, marginBottom: 2 }}>TOPLAM ALAŞIM</div>
                         <div style={{ color: '#D4AF37', fontWeight: 700, fontSize: 24 }}>
-                          {fmt(toplamGram)} <span style={{ fontSize: 14, fontWeight: 400 }}>gr</span>
+                          {fmtRecipe(toplamGram)} <span style={{ fontSize: 14, fontWeight: 400 }}>gr</span>
                         </div>
                         <div style={{ color: colors.subtext, fontSize: 11 }}>
-                          {fmt(hasGram)} g has giriş
+                          {fmtRecipe(hasGram)} g has giriş
                         </div>
                       </>
                     ) : (
                       <>
                         <div style={{ color: colors.subtext, fontSize: 10, letterSpacing: 1, marginBottom: 2 }}>GEREKEN HAS ALTIN (995)</div>
                         <div style={{ color: '#D4AF37', fontWeight: 700, fontSize: 24 }}>
-                          {fmt(hasGram)} <span style={{ fontSize: 14, fontWeight: 400 }}>gr</span>
+                          {fmtRecipe(hasGram)} <span style={{ fontSize: 14, fontWeight: 400 }}>gr</span>
                         </div>
                         <div style={{ color: colors.subtext, fontSize: 11 }}>
-                          {fmt(toplamGram)} gr toplam alaşım
+                          {fmtRecipe(toplamGram)} gr toplam alaşım
                         </div>
                       </>
                     )}
@@ -432,11 +422,11 @@ const MadenAyarlama = () => {
                           <span style={{ color: colors.text, fontWeight: 600, fontSize: 13 }}>
                             {MALZEME_LABELS[m.malzeme] || m.malzeme}
                           </span>
-                          <span style={{ color: colors.subtext, fontSize: 11 }}>%{fmt(m.oran)}</span>
+                          <span style={{ color: colors.subtext, fontSize: 11 }}>%{fmtRecipe(m.oran)}</span>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <span style={{ color: barColor, fontWeight: 700, fontSize: 18 }}>
-                            {fmt(m.gram)}
+                            {fmtRecipe(m.gram)}
                           </span>
                           <span style={{ color: colors.subtext, fontSize: 11, marginLeft: 4 }}>gr</span>
                         </div>
@@ -450,7 +440,7 @@ const MadenAyarlama = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
                   <span style={{ color: colors.subtext, fontSize: 12 }}>Toplam malzeme</span>
                   <span style={{ color: colors.text, fontWeight: 700, fontSize: 14 }}>
-                    {fmt(malzemeGramlar.reduce((s, m) => s + m.gram, 0))} gr
+                    {fmtRecipe(malzemeGramlar.reduce((s, m) => s + m.gram, 0))} gr
                   </span>
                 </div>
 
@@ -459,7 +449,7 @@ const MadenAyarlama = () => {
                     title="Ocağa transfer oluştur"
                     description={
                       <div style={{ marginTop: 4, lineHeight: 1.8 }}>
-                        <div><strong>{fmt(toplamGram)} gr</strong> ayarlı maden</div>
+                        <div><strong>{fmtRecipe(toplamGram)} gr</strong> ayarlı maden</div>
                         <div style={{ fontSize: 12, color: '#888' }}>
                           {PURITY_LABELS[secilenAyar]}
                           {receteObj.hedef_renk ? ' · ' + (COLOR_LABELS[receteObj.hedef_renk] || receteObj.hedef_renk) : ''}

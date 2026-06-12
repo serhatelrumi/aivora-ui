@@ -19,12 +19,23 @@ import {
   GOLD_STOCK_SELECT_OPTIONS,
   parseStockLineKey,
   purityLabel,
-  PURITY_SELECT_OPTIONS,
-  GOLD_COLOR_OPTIONS,
+  TRANSFER_COLOR_OPTIONS,
   purityRequiresColor,
 } from '../constants/goldCatalog';
 import TransferDetailDrawer from '../components/transfers/TransferDetailDrawer';
 import { TRANSFER_LEGEND, getTransferStatusDotColor } from '../constants/transferStatus';
+import {
+  EXTERNAL_DEPT_VALUE,
+  FROM_DEPT_OPTIONS,
+  HAS_PURITY,
+  HAS_PRODUCT_FORM,
+  KASA,
+  getAllowedPurities,
+  getAllowedProductForms,
+  isProductFormLocked,
+  normalizeFromDepartment,
+  validateTransfer,
+} from '../constants/transferRules';
 
 const DEPTS = [
   { value: 'kasa', label: 'Kasa' }, { value: 'ocak', label: 'Ocak' },
@@ -89,12 +100,28 @@ const getRowStyle = (r) => {
 const deptNotSameAs = (otherField) => ({ getFieldValue }) => ({
   validator(_, value) {
     const other = getFieldValue(otherField);
-    if (value && other && value === other) {
+    if (value && other && value === other && value !== EXTERNAL_DEPT_VALUE) {
       return Promise.reject(new Error('Gönderen ve alıcı aynı departman olamaz.'));
     }
     return Promise.resolve();
   },
 });
+
+const buildTransferPayload = (vals) => {
+  const from = normalizeFromDepartment(vals.from_department);
+  return {
+    from_department: from,
+    to_department: vals.to_department,
+    material_type: 'altin',
+    purity: vals.purity,
+    color: vals.color || null,
+    product_form: vals.product_form,
+    weight_grams: vals.weight_grams,
+    notes: vals.notes,
+  };
+};
+
+const fromDeptOptions = [...FROM_DEPT_OPTIONS, ...DEPTS];
 
 const DEPT_LABEL  = { kasa:'Kasa', ocak:'Ocak', pres:'Pres', kaynak:'Kaynak', pres_montaj:'Pres Montaj', cila:'Cila', ayarevi:'Ayar Evi', cnc:'CNC', kaliphane:'Kalıphane', dokum:'Döküm', dokum_montaj:'Döküm Montaj', ar_ge:'AR-GE', halka_kilit:'Halka Kilit', sarnel_kilit:'Sarnel Kilit', zincir:'Zincir', atolye:'Atölye', top:'Top' };
 const COLOR_LABEL = { yesil: 'Yeşil', kirmizi: 'Kırmızı', beyaz: 'Beyaz' };
@@ -155,18 +182,14 @@ const Transfers = () => {
   };
 
   const doCreate = async (vals) => {
+    const ruleErr = validateTransfer(vals);
+    if (ruleErr) {
+      message.error(ruleErr);
+      return;
+    }
     setBusy(true);
     try {
-      await createTransfer({
-        from_department: vals.from_department,
-        to_department: vals.to_department,
-        material_type: 'altin',
-        purity: vals.purity,
-        color: vals.color || null,
-        product_form: vals.product_form,
-        weight_grams: vals.weight_grams,
-        notes: vals.notes,
-      });
+      await createTransfer(buildTransferPayload(vals));
       message.success('Transfer oluşturuldu.');
       setCreate(false); cForm.resetFields(); fetchAll();
     } catch (e) { message.error(e.message || 'Hata oluştu.'); }
@@ -202,7 +225,7 @@ const Transfers = () => {
   const openEdit = (record) => {
     setEditCtx(record);
     eForm.setFieldsValue({
-      from_department: record.from_department,
+      from_department: record.from_department ?? EXTERNAL_DEPT_VALUE,
       to_department:   record.to_department,
       material_type:   'altin',
       purity:          record.purity,
@@ -214,18 +237,14 @@ const Transfers = () => {
   };
 
   const doEdit = async (vals) => {
+    const ruleErr = validateTransfer(vals);
+    if (ruleErr) {
+      message.error(ruleErr);
+      return;
+    }
     setBusy(true);
     try {
-      await updateTransfer(editCtx.id, {
-        from_department: vals.from_department,
-        to_department: vals.to_department,
-        material_type: 'altin',
-        purity: vals.purity,
-        color: vals.color || null,
-        product_form: vals.product_form,
-        weight_grams: vals.weight_grams,
-        notes: vals.notes,
-      });
+      await updateTransfer(editCtx.id, buildTransferPayload(vals));
       message.success('Transfer güncellendi.');
       setEditCtx(null); eForm.resetFields(); fetchAll();
     } catch (e) { message.error(e.message || 'Güncellenemedi.'); }
@@ -384,7 +403,7 @@ const Transfers = () => {
     }),
   ].filter(Boolean);
 
-  const defaultProductForm = (purity) => (purity === 'has_995' ? 'has_altin' : 'ayarli_maden');
+  const defaultProductForm = (purity) => (purity === HAS_PURITY ? HAS_PRODUCT_FORM : 'ayarli_maden');
 
   const onPurityChange = (form, purity) => {
     form.setFieldsValue({
@@ -395,20 +414,64 @@ const Transfers = () => {
     });
   };
 
+  const excludeDept = (options, dept) => {
+    if (!dept || dept === EXTERNAL_DEPT_VALUE) return options;
+    return options.filter((o) => o.value !== dept);
+  };
+
+  const syncFormOnDeptChange = (form, from, to) => {
+    const allowed = getAllowedPurities(from, to).map((o) => o.value);
+    const currentPurity = form.getFieldValue('purity');
+    const patch = {};
+
+    if (from === EXTERNAL_DEPT_VALUE) {
+      patch.to_department = KASA;
+      patch.purity = HAS_PURITY;
+      patch.product_form = HAS_PRODUCT_FORM;
+      patch.color = undefined;
+    } else {
+      if (from && to === from) {
+        patch.to_department = undefined;
+      }
+      if (currentPurity && !allowed.includes(currentPurity)) {
+        patch.purity = undefined;
+        patch.color = undefined;
+        patch.product_form = 'ayarli_maden';
+      }
+    }
+
+    if (Object.keys(patch).length) {
+      form.setFieldsValue(patch);
+    }
+  };
+
   const applyStockLine = (form, lineKeyVal) => {
     const { purity } = parseStockLineKey(lineKeyVal);
-    const current = form.getFieldValue('product_form');
     form.setFieldsValue({
-      product_form: current || defaultProductForm(purity),
+      product_form: defaultProductForm(purity),
     });
   };
 
   const TransferFormFields = ({ form }) => {
+    const fromDept = Form.useWatch('from_department', form);
+    const toDept = Form.useWatch('to_department', form);
     const purity = Form.useWatch('purity', form);
     const showColor = purityRequiresColor(purity);
+    const purityOptions = getAllowedPurities(fromDept, toDept);
+    const formOptions = getAllowedProductForms(purity, FORMS);
+    const productFormLocked = isProductFormLocked(purity);
+    const isHasEntryForm = fromDept === EXTERNAL_DEPT_VALUE && toDept === KASA;
+    const senderOptions = excludeDept(fromDeptOptions, toDept);
+    const recipientOptions = excludeDept(DEPTS, fromDept);
 
     return (
       <>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="Has altın yalnızca Dış Kaynak → Kasa girişinde kullanılır. Fabrika içi trafik ayarlı maden ve ürün formları ile yapılır."
+        />
         <Form.Item
           name="from_department"
           label="Gönderen"
@@ -416,11 +479,14 @@ const Transfers = () => {
           dependencies={['to_department']}
         >
           <Select
-            options={DEPTS}
+            options={senderOptions}
             placeholder="Gönderen departman"
             showSearch
             filterOption={filterOpt}
-            onChange={() => form.validateFields(['to_department'])}
+            onChange={(v) => {
+              syncFormOnDeptChange(form, v, form.getFieldValue('to_department'));
+              form.validateFields(['to_department']);
+            }}
           />
         </Form.Item>
         <Form.Item
@@ -430,19 +496,24 @@ const Transfers = () => {
           dependencies={['from_department']}
         >
           <Select
-            options={DEPTS}
+            options={recipientOptions}
             placeholder="Alıcı departman"
             showSearch
             filterOption={filterOpt}
-            onChange={() => form.validateFields(['from_department'])}
+            disabled={fromDept === EXTERNAL_DEPT_VALUE}
+            onChange={(v) => {
+              syncFormOnDeptChange(form, form.getFieldValue('from_department'), v);
+              form.validateFields(['from_department']);
+            }}
           />
         </Form.Item>
         <Form.Item name="purity" label="Ayar" rules={[{ required: true, message: 'Ayar seçin.' }]}>
           <Select
-            options={PURITY_SELECT_OPTIONS}
+            options={purityOptions}
             placeholder="Ayar seçin"
             showSearch
             filterOption={filterOpt}
+            disabled={isHasEntryForm}
             onChange={(v) => onPurityChange(form, v)}
           />
         </Form.Item>
@@ -453,14 +524,20 @@ const Transfers = () => {
             rules={[{ required: true, message: 'Renk seçin.' }]}
           >
             <Select
-              options={GOLD_COLOR_OPTIONS}
+              options={TRANSFER_COLOR_OPTIONS}
               placeholder="Renk seçin"
               allowClear={false}
             />
           </Form.Item>
         )}
         <Form.Item name="product_form" label="Maden türü" rules={[{ required: true }]} initialValue="ayarli_maden">
-          <Select options={FORMS} placeholder="Maden türü seçin" showSearch filterOption={filterOpt} />
+          <Select
+            options={formOptions}
+            placeholder="Maden türü seçin"
+            showSearch
+            filterOption={filterOpt}
+            disabled={productFormLocked}
+          />
         </Form.Item>
         <Form.Item name="material_type" hidden initialValue="altin"><Input /></Form.Item>
         <Form.Item name="weight_grams" label="Ağırlık (gr)" rules={[{ required: true }]}>
@@ -473,7 +550,13 @@ const Transfers = () => {
     );
   };
 
-  const StockFormFields = ({ form }) => (
+  const StockFormFields = ({ form }) => {
+    const stockLine = Form.useWatch('stock_line', form);
+    const stockPurity = stockLine ? parseStockLineKey(stockLine).purity : undefined;
+    const stockFormLocked = isProductFormLocked(stockPurity);
+    const stockFormOptions = getAllowedProductForms(stockPurity, FORMS);
+
+    return (
     <>
       <Form.Item name="stock_line" label="Altın türü" rules={[{ required: true }]}>
         <Select
@@ -485,7 +568,13 @@ const Transfers = () => {
         />
       </Form.Item>
       <Form.Item name="product_form" label="Maden türü" rules={[{ required: true }]} initialValue="ayarli_maden">
-        <Select options={FORMS} placeholder="Maden türü seçin" showSearch filterOption={filterOpt} />
+        <Select
+          options={stockFormOptions.length ? stockFormOptions : FORMS}
+          placeholder="Maden türü seçin"
+          showSearch
+          filterOption={filterOpt}
+          disabled={stockFormLocked}
+        />
       </Form.Item>
       <Form.Item name="weight_grams" label="Ağırlık (gr)" rules={[{ required: true }]}>
         <InputNumber min={0.01} step={0.1} precision={2} style={{ width: '100%' }} placeholder="0.00" />
@@ -494,7 +583,8 @@ const Transfers = () => {
         <Input.TextArea rows={2} placeholder="İsteğe bağlı not..." />
       </Form.Item>
     </>
-  );
+    );
+  };
 
   return (
     <div style={{ fontFamily: "'Poppins', sans-serif" }}>

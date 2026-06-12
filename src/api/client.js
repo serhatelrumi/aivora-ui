@@ -10,7 +10,12 @@ export const apiRequest = async (method, endpoint, body = null) => {
   const config = { method, headers };
   if (body !== null) config.body = JSON.stringify(body);
 
-  const response = await fetch(BASE_URL + endpoint, config);
+  let response;
+  try {
+    response = await fetch(BASE_URL + endpoint, config);
+  } catch {
+    throw new Error('Sunucuya bağlanılamadı. Backend (port 8000) çalışıyor mu?');
+  }
 
   if (response.status === 401) {
     localStorage.removeItem('token');
@@ -28,6 +33,8 @@ export const apiRequest = async (method, endpoint, body = null) => {
     if (typeof detail === 'string') msg = detail;
     else if (Array.isArray(detail)) {
       msg = detail.map((d) => (typeof d === 'string' ? d : d.msg || JSON.stringify(d))).join(' ');
+    } else if (response.status >= 500) {
+      msg = 'Sunucu hatası. Backend loglarını kontrol edin.';
     }
     throw new Error(msg);
   }

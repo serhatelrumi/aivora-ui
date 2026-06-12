@@ -61,17 +61,45 @@ PUR_LABEL['18k'] = '18K';
 PUR_LABEL['925'] = '925 Gümüş';
 PUR_LABEL.altin_diger = 'Has Altın (995)';
 
-/** Transfer formu — önce ayar, sonra renk */
+/** Transfer formu — önce ayar, sonra renk (genel liste; tablo/rapor etiketleri için) */
 export const PURITY_SELECT_OPTIONS = [...UNCOLORED_PURITIES, ...COLORED_PURITIES].map((p) => ({
   value: p,
   label: PUR_LABEL[p] || p,
 }));
 
-export const GOLD_COLOR_OPTIONS = [
+/** Yeni transfer modalı — sıra ve etiket (parantez içi millesimal yok) */
+export const TRANSFER_PURITY_ORDER = ['14k', '18k', '21k', '22k', '8k', '9k', '10k'];
+
+const TRANSFER_PURITY_LABEL = {
+  has_995: 'Has Altın',
+  '14k': '14K',
+  '18k': '18K',
+  '21k': '21K',
+  '22k': '22K',
+  '8k': '8K',
+  '9k': '9K',
+  '10k': '10K',
+};
+
+export const buildTransferPurityOptions = ({ includeHas = false } = {}) => {
+  const items = TRANSFER_PURITY_ORDER.map((p) => ({
+    value: p,
+    label: TRANSFER_PURITY_LABEL[p],
+  }));
+  if (includeHas) {
+    return [{ value: 'has_995', label: TRANSFER_PURITY_LABEL.has_995 }, ...items];
+  }
+  return items;
+};
+
+/** Transfer formu renk sırası: yeşil → kırmızı → beyaz */
+export const TRANSFER_COLOR_OPTIONS = [
   { value: 'yesil', label: 'Yeşil' },
   { value: 'kirmizi', label: 'Kırmızı' },
   { value: 'beyaz', label: 'Beyaz' },
 ];
+
+export const GOLD_COLOR_OPTIONS = TRANSFER_COLOR_OPTIONS;
 
 export const purityRequiresColor = (purity) => COLORED_PURITIES.includes(purity);
 

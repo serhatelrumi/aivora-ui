@@ -30,9 +30,9 @@ const DeptStockTable = ({ lines, colors, showFooter = true }) => {
           {lines.map((b, i) => (
             <tr key={i}>
               <td style={{ color: colors.text, paddingBottom: 3, whiteSpace: 'nowrap' }}>
-                {purityLabel(b.purity, b.color)}
+                <span style={{ fontWeight: 700 }}>{purityLabel(b.purity, b.color)}</span>
                 {b.color ? (
-                  <span style={{ color: colors.subtext }}>
+                  <span style={{ color: colors.subtext, fontWeight: 400 }}>
                     {' · '}{COLOR_LABEL[b.color] || b.color}
                   </span>
                 ) : null}
