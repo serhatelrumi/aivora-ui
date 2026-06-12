@@ -619,11 +619,11 @@ const Transfers = () => {
           items={[
             {
               key: 'all', label: 'Tümü',
-              children: <Table dataSource={all} columns={columns(false)} rowKey="id"
+              children: <Table dataSource={all} columns={columns(true)} rowKey="id"
                 loading={loading} size="small"
                 onRow={(r) => ({ style: { ...getRowStyle(r), cursor: 'pointer' }, onClick: () => setDetail(r) })}
                 pagination={{ pageSize, showSizeChanger: true, pageSizeOptions: ['20','50','100'], onShowSizeChange: (_, size) => setPageSize(size) }}
-                locale={{ emptyText: emptyActive }} scroll={{ x: 1096 }} tableLayout="fixed" />,
+                locale={{ emptyText: emptyActive }} scroll={{ x: 1148 }} tableLayout="fixed" />,
             },
             {
               key: 'pend', label: 'Beklemede (' + pend.length + ')',
