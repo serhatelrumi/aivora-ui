@@ -18,6 +18,7 @@ import Reports from './pages/Reports';
 import Alarms from './pages/Alarms';
 import Receteler from './pages/Receteler';
 import MadenAyarlama from './pages/MadenAyarlama';
+import GelenTransferler from './pages/GelenTransferler';
 
 const ThemedApp = () => {
   const { darkMode } = useTheme();
@@ -46,6 +47,11 @@ const ThemedApp = () => {
                     <Routes>
                       <Route path="/" element={<Dashboard />} />
                       <Route path="/transfers" element={<Transfers />} />
+                      <Route path="/gelen-transferler" element={
+                        <ProtectedRoute allowedRoles={['admin', 'departman_sorumlusu']}>
+                          <GelenTransferler />
+                        </ProtectedRoute>
+                      } />
                       <Route path="/guvarse" element={<Guvarse />} />
                       <Route path="/vardiya" element={<Vardiya />} />
                       <Route path="/tolerans" element={<Tolerans />} />

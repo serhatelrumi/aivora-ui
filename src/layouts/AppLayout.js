@@ -57,6 +57,9 @@ const AppLayout = ({ children }) => {
   if (['admin', 'kasa'].includes(role)) {
     menuItems.push({ key: '/transfers', icon: <SwapOutlined />, label: 'Transferler' });
   }
+  if (role === 'departman_sorumlusu') {
+    menuItems.push({ key: '/gelen-transferler', icon: <SwapOutlined />, label: 'Gelen Transferler' });
+  }
   if (['admin', 'patron', 'fabrika_muduru', 'departman_sorumlusu'].includes(role)) {
     menuItems.push({ key: '/guvarse', icon: <ExperimentOutlined />, label: 'Güverse' });
   }
