@@ -7,6 +7,7 @@ import { PlusOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTheme } from '../context/ThemeContext';
 import { createMizan, listMizan, onaylaMizan } from '../api/mizan';
 import { listVardiyaKapanis } from '../api/vardiya';
+import { fmt } from '../utils/reportLabels';
 
 const DEPT_LABEL = { kasa:'Kasa', ocak:'Ocak', pres:'Pres', kaynak:'Kaynak', pres_montaj:'Pres Montaj', cila:'Cila', ayarevi:'Ayar Evi', cnc:'CNC', kaliphane:'Kalıphane', dokum:'Döküm', dokum_montaj:'Döküm Montaj', ar_ge:'AR-GE', halka_kilit:'Halka Kilit', sarnel_kilit:'Sarnel Kilit', zincir:'Zincir', atolye:'Atölye', top:'Top' };
 
@@ -64,7 +65,7 @@ const Mizan = () => {
 
   const kapanisOpts = kapanislar.map(k => ({
     value: k.id,
-    label: (DEPT_LABEL[k.department] || k.department) + ' · ' + k.tarih + ' · net ' + k.net_fark?.toFixed(2) + 'g',
+    label: (DEPT_LABEL[k.department] || k.department) + ' · ' + k.tarih + ' · net ' + fmt(k.net_fark) + 'g',
   }));
 
   const columns = [
@@ -82,18 +83,18 @@ const Mizan = () => {
       render: v => <Tag color="blue">{(v || []).length} vardiya</Tag>,
     },
     {
-      title: 'Tahmini Borç', dataIndex: 'toplam_tahmini_borc',
-      render: v => <span style={{ fontWeight: 600 }}>{v != null ? (v / 0.995).toFixed(2) : '—'} g has</span>,
+      title: 'Brüt Borç (D)', dataIndex: 'toplam_tahmini_borc',
+      render: v => <span style={{ fontWeight: 600 }}>{v != null ? fmt(v) : '—'} g has</span>,
     },
     {
       title: 'Ayarevi Reel HAS', dataIndex: 'ayarevi_reel_has_degeri',
-      render: v => v != null ? <span style={{ color: '#52C41A', fontWeight: 600 }}>{v?.toFixed(2)} g</span> : '—',
+      render: v => v != null ? <span style={{ color: '#52C41A', fontWeight: 600 }}>{fmt(v)} g</span> : '—',
     },
     {
-      title: 'Reel Fark', dataIndex: 'reel_fark',
+      title: 'Gerçek Borç (D−R)', dataIndex: 'reel_fark',
       render: v => v != null ? (
         <span style={{ color: Math.abs(v) < 1 ? '#52C41A' : '#FF4D4F', fontWeight: 600 }}>
-          {v?.toFixed(2)} g
+          {fmt(v)} g
         </span>
       ) : '—',
     },

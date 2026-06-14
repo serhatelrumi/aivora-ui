@@ -23,7 +23,7 @@ const DEPT_LABEL = {
 const senderLabel = (r) => (r.from_department ? DEPT_LABEL[r.from_department] || r.from_department : 'Kasa');
 
 const formatGrams = (g) =>
-  `${Number(g).toLocaleString('tr-TR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} gr`;
+  `${Number(g).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} gr`;
 
 const GelenTransferler = () => {
   const { colors } = useTheme();

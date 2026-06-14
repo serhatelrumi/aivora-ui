@@ -196,11 +196,11 @@ const exportEodExcel = (data, filename) => {
 const exportHasVardiyaPdf = (data, filename) => {
   const doc = new jsPDF();
   let y = pdfHeader(doc, 'HAS Vardiya Raporu', data.report_date);
-  const head = ['Departman', 'HAS Borcu', 'Güverse', 'Net Fark', 'Tolerans', 'Durum'];
+  const head = ['Departman', 'HAS Borcu', 'Takoz', 'Net Fark', 'Tolerans', 'Durum'];
   const body = (data.departments || []).map(d => [
     DEPT_LABEL[d.department] || d.department,
     fmt(d.has_borcu) + ' g',
-    fmt(d.guvarse_karsiligi) + ' g',
+    fmt(d.takoz_karsiligi) + ' g',
     fmt(d.net_fark) + ' g',
     d.tolerance_esigi != null ? fmt(d.tolerance_esigi) + ' g' : '—',
     RENK_LABEL[d.renk] || d.renk,
@@ -212,11 +212,11 @@ const exportHasVardiyaPdf = (data, filename) => {
 const exportHasVardiyaExcel = (data, filename) => {
   saveWorkbook([
     sheetFromAoA('HasVardiya', [
-      ['Departman', 'HAS Borcu', 'Güverse', 'Net Fark', 'Tolerans', 'Renk', 'Durum'],
+      ['Departman', 'HAS Borcu', 'Takoz', 'Net Fark', 'Tolerans', 'Renk', 'Durum'],
       ...(data.departments || []).map(d => [
         DEPT_LABEL[d.department] || d.department,
         d.has_borcu,
-        d.guvarse_karsiligi,
+        d.takoz_karsiligi,
         d.net_fark,
         d.tolerance_esigi,
         RENK_LABEL[d.renk] || d.renk,

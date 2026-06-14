@@ -7,7 +7,7 @@ import {
   SunOutlined, MoonOutlined, LogoutOutlined,
   MenuFoldOutlined, MenuUnfoldOutlined,
   TeamOutlined, FileTextOutlined, BellOutlined,
-  FireOutlined, BookOutlined,
+  FireOutlined, BookOutlined, AccountBookOutlined, SafetyOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -61,10 +61,11 @@ const AppLayout = ({ children }) => {
     menuItems.push({ key: '/gelen-transferler', icon: <SwapOutlined />, label: 'Gelen Transferler' });
   }
   if (['admin', 'patron', 'fabrika_muduru', 'departman_sorumlusu'].includes(role)) {
-    menuItems.push({ key: '/guvarse', icon: <ExperimentOutlined />, label: 'Güverse' });
+    menuItems.push({ key: '/takoz', icon: <ExperimentOutlined />, label: 'Takoz' });
   }
   if (['admin', 'patron', 'fabrika_muduru'].includes(role)) {
     menuItems.push({ key: '/vardiya', icon: <FieldTimeOutlined />, label: 'Vardiya' });
+    menuItems.push({ key: '/borclar', icon: <AccountBookOutlined />, label: 'Bölüm Borçları' });
   }
   if (['admin', 'patron', 'fabrika_muduru', 'kasa'].includes(role)) {
     menuItems.push({ key: '/maden-ayarlama', icon: <FireOutlined />, label: 'Maden Ayarlama' });
@@ -78,6 +79,9 @@ const AppLayout = ({ children }) => {
     menuItems.push({ key: '/alarms', icon: <BellOutlined />, label: 'Alarmlar' });
     menuItems.push({ key: '/users', icon: <TeamOutlined />, label: 'Kullanıcılar' });
     menuItems.push({ key: '/tolerans', icon: <SettingOutlined />, label: 'Tolerans' });
+  }
+  if (role === 'admin') {
+    menuItems.push({ key: '/yetkiler', icon: <SafetyOutlined />, label: 'Yetkiler' });
   }
 
   const selectedKey = location.pathname === '/'

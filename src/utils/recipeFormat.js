@@ -1,6 +1,6 @@
-/** Reçete girişi ve maden ayarlama — xx,xxx formatı */
+/** Reçete girişi ve maden ayarlama — xx,xx formatı (tartılar 2 ondalık ölçer) */
 
-export const RECIPE_DECIMALS = 3;
+export const RECIPE_DECIMALS = 2;
 
 export const fmtRecipe = (n) => (typeof n === 'number'
   ? n.toLocaleString('tr-TR', {
@@ -16,7 +16,7 @@ export const preventInputNumberWheel = (e) => {
 
 const recipeBaseInputProps = {
   precision: RECIPE_DECIMALS,
-  step: 0.001,
+  step: 0.01,
   decimalSeparator: ',',
   onWheel: preventInputNumberWheel,
 };

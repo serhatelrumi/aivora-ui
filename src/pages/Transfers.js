@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { fmt } from '../utils/reportLabels';
 import {
   listTransfers, listPending, createTransfer,
   confirmTransfer, createInitialStock,
@@ -325,7 +326,7 @@ const Transfers = () => {
       sorter: (a, b) => (a.weight_grams || 0) - (b.weight_grams || 0),
       render: v => (
         <span style={{ color: colors.gold }}>
-          {typeof v === 'number' ? `${v.toFixed(2)}\u00a0gr` : v}
+          {typeof v === 'number' ? `${fmt(v)}\u00a0gr` : v}
         </span>
       ),
     }),
@@ -343,7 +344,7 @@ const Transfers = () => {
       sorter: (a, b) => (a.has_value || 0) - (b.has_value || 0),
       render: v => (
         <span style={{ color: colors.gold }}>
-          {v != null ? `${(v / 0.995).toFixed(2)}\u00a0g` : '—'}
+          {v != null ? `${fmt(v / 0.995)}\u00a0g` : '—'}
         </span>
       ),
     }),

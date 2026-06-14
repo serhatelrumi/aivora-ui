@@ -2,11 +2,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table, Button, Tag, Modal, Spin, Alert, message, Tooltip, Select, Space, Row, Col,
 } from 'antd';
-import { CheckCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, ReloadOutlined, UndoOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useTheme } from '../context/ThemeContext';
-import { getVardiyaDurum, createVardiyaKapanis } from '../api/vardiya';
-import { listAllGuvarse } from '../api/guvarse';
+import { useAuth } from '../context/AuthContext';
+import { getVardiyaDurum, createVardiyaKapanis, reopenVardiyaKapanis } from '../api/vardiya';
+import { listAllTakoz, deleteTakoz } from '../api/takoz';
+import { closeOperatingDay } from '../api/reports';
 import { getAllBalances } from '../api/dashboard';
 import { groupAltinByDepartment } from '../utils/balanceDisplay';
 import { DEPT_LABEL, fmt } from '../utils/reportLabels';
@@ -29,10 +31,12 @@ const StatusDot = ({ color }) => (
 
 const Vardiya = () => {
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const [durum, setDurum] = useState([]);
   const [balanceMap, setBalanceMap] = useState({});
-  const [guvarseAll, setGuvarseAll] = useState([]);
+  const [takozAll, setTakozAll] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [renkFilter, setRenkFilter] = useState(null);
@@ -66,10 +70,10 @@ const Vardiya = () => {
     try {
       const [bals, guv] = await Promise.all([
         getAllBalances().catch(() => []),
-        listAllGuvarse().catch(() => []),
+        listAllTakoz().catch(() => []),
       ]);
       setBalanceMap(groupAltinByDepartment(bals || [], { excludeKasa: true }));
-      setGuvarseAll(guv || []);
+      setTakozAll(guv || []);
     } catch {
       if (!fetchError) fetchError = 'Ek veriler yüklenemedi.';
     }
@@ -77,16 +81,16 @@ const Vardiya = () => {
     setLoading(false);
   };
 
-  const guvarseByDept = useMemo(() => {
+  const takozByDept = useMemo(() => {
     const map = {};
-    guvarseAll
+    takozAll
       .filter((g) => g.tarih === today)
       .forEach((g) => {
         if (!map[g.department]) map[g.department] = [];
         map[g.department].push(g);
       });
     return map;
-  }, [guvarseAll, today]);
+  }, [takozAll, today]);
 
   const filtered = useMemo(() => {
     const rows = [...durum].sort((a, b) =>
@@ -124,6 +128,66 @@ const Vardiya = () => {
   };
 
   const requestClose = (row) => setConfirmCtx(row);
+
+  // Gün kapatılabilir: HER bölüm tek tek kapatılmış (yesil/mavi) olmalı — boş bölümler dahil.
+  const closedCount = durum.filter(d => ['yesil', 'mavi'].includes(d.renk)).length;
+  const canCloseDay = durum.length > 0 && closedCount === durum.length;
+
+  const doCloseDay = () => {
+    Modal.confirm({
+      title: 'Günü Kapat',
+      content: 'Tüm bölümler kapandı. Günü kapatmak aktif transferleri arşivler ve günü kilitler. Onaylıyor musunuz?',
+      okText: 'Evet, Günü Kapat',
+      cancelText: 'Vazgeç',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          const res = await closeOperatingDay(today);
+          message.success(`Gün kapatıldı — ${res.archived_count} transfer arşivlendi.`);
+          fetchAll();
+        } catch (e) { message.error(e.message || 'Gün kapatılamadı.'); }
+      },
+    });
+  };
+
+  const doDeleteTakoz = (takoz) => {
+    Modal.confirm({
+      title: 'Takoz Teslimini İptal Et',
+      content: `${fmt(takoz.gram)} gr takoz kaydı (#${takoz.id}) silinecek. Onaylıyor musunuz?`,
+      okText: 'Evet, Sil',
+      cancelText: 'Vazgeç',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteTakoz(takoz.id);
+          message.success('Takoz teslimi iptal edildi.');
+          fetchAll();
+        } catch (e) {
+          message.error(e.message || 'Takoz iptal edilemedi.');
+        }
+      },
+    });
+  };
+
+  const doGeriAl = (row) => {
+    Modal.confirm({
+      title: 'Vardiya Kapanışını Geri Al',
+      content: `${DEPT_LABEL[row.department] || row.department} bölümünün kapanışı geri alınacak ve vardiya yeniden açılacak. Bağlı takozlar bekleyene döner. Onaylıyor musunuz?`,
+      okText: 'Evet, Geri Al',
+      cancelText: 'Vazgeç',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await reopenVardiyaKapanis(row.vardiya_kapanis_id);
+          message.success(`${DEPT_LABEL[row.department] || row.department} vardiyası yeniden açıldı.`);
+          setSelected(null);
+          fetchAll();
+        } catch (e) {
+          message.error(e.message || 'Geri alınamadı.');
+        }
+      },
+    });
+  };
 
   const columns = [
     {
@@ -174,10 +238,10 @@ const Vardiya = () => {
       ),
     },
     {
-      title: 'Güverse',
-      dataIndex: 'guvarse_karsiligi',
+      title: 'Takoz',
+      dataIndex: 'takoz_karsiligi',
       align: 'right',
-      sorter: (a, b) => (a.guvarse_karsiligi || 0) - (b.guvarse_karsiligi || 0),
+      sorter: (a, b) => (a.takoz_karsiligi || 0) - (b.takoz_karsiligi || 0),
       render: (v) => <span style={{ color: '#52C41A', fontWeight: 600 }}>{fmt(v)} g</span>,
     },
     {
@@ -200,8 +264,26 @@ const Vardiya = () => {
     },
     {
       title: 'İşlem',
-      width: 90,
+      width: 110,
       render: (_, r) => {
+        const isClosed = !!r.vardiya_kapanis_id;
+        if (isClosed) {
+          if (!isAdmin) return <Tag color="green">Kapandı</Tag>;
+          const inMizan = r.renk === 'mavi';
+          return (
+            <Tooltip title={inMizan ? 'Onaylı mizana dahil — önce mizan iptal edilmeli' : 'Vardiyayı geri aç (yeniden aç)'}>
+              <Button
+                danger
+                size="small"
+                icon={<UndoOutlined />}
+                disabled={inMizan}
+                onClick={(e) => { e.stopPropagation(); doGeriAl(r); }}
+              >
+                Geri Al
+              </Button>
+            </Tooltip>
+          );
+        }
         const canClose = !!r.kapanabilir;
         return (
           <Tooltip
@@ -248,7 +330,18 @@ const Vardiya = () => {
           <h2 style={{ color: colors.text, fontWeight: 700, margin: 0 }}>Vardiya Kapanış</h2>
           <div style={{ color: colors.subtext, fontSize: 12, marginTop: 4 }}>{today}</div>
         </div>
-        <Button icon={<ReloadOutlined />} onClick={fetchAll}>Yenile</Button>
+        <Space>
+          <Button icon={<ReloadOutlined />} onClick={fetchAll}>Yenile</Button>
+          {['admin', 'patron'].includes(user?.role) && (
+            <Tooltip title={canCloseDay
+              ? 'Tüm bölümler kapandı — günü kapat'
+              : `Önce tüm bölümleri tek tek kapatın (${closedCount}/${durum.length} bölüm kapandı)`}>
+              <Button danger icon={<LockOutlined />} disabled={!canCloseDay} onClick={doCloseDay}>
+                Günü Kapat
+              </Button>
+            </Tooltip>
+          )}
+        </Space>
       </div>
 
       <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
@@ -308,8 +401,10 @@ const Vardiya = () => {
         onClose={() => setSelected(null)}
         colors={colors}
         balanceMap={balanceMap}
-        todayGuvarse={selected ? (guvarseByDept[selected.department] || []) : []}
+        todayTakoz={selected ? (takozByDept[selected.department] || []) : []}
         onRequestClose={requestClose}
+        canDeleteTakoz={isAdmin}
+        onDeleteTakoz={doDeleteTakoz}
       />
 
       <Modal
@@ -335,8 +430,8 @@ const Vardiya = () => {
                 <span style={{ fontWeight: 600 }}>{fmt(confirmCtx.has_borcu)} g</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ color: colors.subtext }}>Güverse Karşılığı:</span>
-                <span style={{ color: '#52C41A', fontWeight: 600 }}>{fmt(confirmCtx.guvarse_karsiligi)} g</span>
+                <span style={{ color: colors.subtext }}>Takoz Karşılığı:</span>
+                <span style={{ color: '#52C41A', fontWeight: 600 }}>{fmt(confirmCtx.takoz_karsiligi)} g</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${colors.border}`, paddingTop: 8 }}>
                 <span style={{ color: colors.subtext }}>Net Fark:</span>

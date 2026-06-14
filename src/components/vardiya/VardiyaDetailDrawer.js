@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Drawer, Tag, Table, Collapse, Button, Spin, Tooltip, Alert,
 } from 'antd';
-import { CheckCircleOutlined } from '@ant-design/icons';
+import { CheckCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { DEPT_LABEL, fmt } from '../../utils/reportLabels';
 import { vardiyaRenkConfig } from '../../constants/vardiyaStatus';
 import { listKapanisByDept } from '../../api/vardiya';
@@ -15,8 +15,10 @@ const VardiyaDetailDrawer = ({
   onClose,
   colors,
   balanceMap,
-  todayGuvarse = [],
+  todayTakoz = [],
   onRequestClose,
+  canDeleteTakoz = false,
+  onDeleteTakoz,
 }) => {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -45,31 +47,46 @@ const VardiyaDetailDrawer = ({
     </div>
   );
 
-  const guvarseColumns = [
+  const takozColumns = [
     { title: '#', dataIndex: 'id', width: 48, render: (v) => <span style={{ color: colors.subtext, fontSize: 11 }}>#{v}</span> },
     { title: 'Gram', dataIndex: 'gram', render: (v) => <span style={{ fontWeight: 600 }}>{fmt(v)} gr</span> },
     {
       title: 'Tahmini Ayar',
       dataIndex: 'tahmini_ayar',
-      render: (v) => (v != null ? `${(v * 100).toFixed(2)}%` : '—'),
+      render: (v) => (v != null ? `${(v * 1000).toFixed(2)}` : '—'),
     },
     {
       title: 'Tahmini HAS',
       dataIndex: 'tahmini_has_degeri',
-      render: (v) => <span style={{ color: '#52C41A', fontWeight: 600 }}>{v != null ? `${fmt(v)} g` : '—'}</span>,
+      render: (v) => <span style={{ color: '#52C41A', fontWeight: 600 }}>{v != null ? `${fmt(v / 0.995)} g` : '—'}</span>,
     },
     {
       title: 'Vardiya',
       dataIndex: 'vardiya_kapanis_id',
       render: (v) => (v ? <Tag color="cyan">#{v}</Tag> : <span style={{ color: colors.subtext, fontSize: 11 }}>Açık</span>),
     },
+    ...(canDeleteTakoz ? [{
+      title: 'İptal',
+      width: 64,
+      render: (_, t) => (
+        <Tooltip title={t.vardiya_kapanis_id ? 'Kapalı vardiyaya bağlı — önce kapanışı geri alın' : 'Takoz teslimini iptal et'}>
+          <Button
+            danger
+            size="small"
+            icon={<DeleteOutlined />}
+            disabled={!!t.vardiya_kapanis_id}
+            onClick={() => onDeleteTakoz && onDeleteTakoz(t)}
+          />
+        </Tooltip>
+      ),
+    }] : []),
   ];
 
   const historyColumns = [
     { title: '#', dataIndex: 'id', width: 48, render: (v) => <span style={{ color: colors.subtext, fontSize: 11 }}>#{v}</span> },
     { title: 'Tarih', dataIndex: 'tarih' },
     { title: 'HAS Borcu', dataIndex: 'toplam_tahmini_has_borcu', render: (v) => `${fmt(v)} g` },
-    { title: 'Güverse', dataIndex: 'guvarse_tahmini_has_karsiligi', render: (v) => <span style={{ color: '#52C41A' }}>{fmt(v)} g</span> },
+    { title: 'Takoz', dataIndex: 'takoz_tahmini_has_karsiligi', render: (v) => <span style={{ color: '#52C41A' }}>{fmt(v)} g</span> },
     {
       title: 'Net Fark',
       dataIndex: 'net_fark',
@@ -140,7 +157,7 @@ const VardiyaDetailDrawer = ({
             }}
           >
             {metric('GÜNCEL HAS', `${fmt(r.has_borcu)} g`, renk.hex)}
-            {metric('GÜVERSE', `${fmt(r.guvarse_karsiligi)} g`, '#52C41A')}
+            {metric('TAKOZ', `${fmt(r.takoz_karsiligi)} g`, '#52C41A')}
             {metric(
               'NET FARK',
               `${fmt(r.net_fark)} g`,
@@ -154,7 +171,7 @@ const VardiyaDetailDrawer = ({
               type="info"
               showIcon
               message="Boş gün"
-              description="Stok ve güverse kaydı yok. Vardiya kapanışı yapılabilir."
+              description="Stok ve takoz kaydı yok. Vardiya kapanışı yapılabilir."
               style={{ marginBottom: 20 }}
             />
           )}
@@ -188,15 +205,15 @@ const VardiyaDetailDrawer = ({
 
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: colors.text }}>
-              Bugünkü Güverse Kayıtları
+              Bugünkü Takoz Kayıtları
             </div>
             <Table
-              dataSource={todayGuvarse}
-              columns={guvarseColumns}
+              dataSource={todayTakoz}
+              columns={takozColumns}
               rowKey="id"
               size="small"
               pagination={false}
-              locale={{ emptyText: 'Bugün güverse kaydı yok' }}
+              locale={{ emptyText: 'Bugün takoz kaydı yok' }}
               scroll={{ x: 400 }}
             />
           </div>

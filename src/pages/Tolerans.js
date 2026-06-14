@@ -5,6 +5,7 @@ import {
 import { EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useTheme } from '../context/ThemeContext';
 import { getAllDeptSettings, updateDeptSetting } from '../api/departmentSettings';
+import { fmt } from '../utils/reportLabels';
 
 const ALL_DEPTS = [
   'kasa','ocak','pres','kaynak','pres_montaj','cila','ayarevi','cnc',
@@ -66,7 +67,7 @@ const Tolerans = () => {
     {
       title: 'Mevcut Tolerans', dataIndex: 'tolerance_grams',
       render: v => v != null
-        ? <Tag color="gold" style={{ fontSize: 13, padding: '2px 10px' }}>{v} gr HAS</Tag>
+        ? <Tag color="gold" style={{ fontSize: 13, padding: '2px 10px' }}>{fmt(v)} gr HAS</Tag>
         : <Tag color="default">Ayarlanmamış</Tag>,
     },
     {

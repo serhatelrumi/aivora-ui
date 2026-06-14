@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Tabs, DatePicker, Select, Button, Table, Tag, Alert,
-  Row, Col, Spin, Empty, Popconfirm, message, Collapse,
+  Row, Col, Spin, Empty, Collapse,
 } from 'antd';
 import {
   SearchOutlined, ReloadOutlined, BarChartOutlined,
   BankOutlined, ClockCircleOutlined, CalendarOutlined,
-  HeatMapOutlined, LockOutlined, FileTextOutlined,
+  HeatMapOutlined, FileTextOutlined,
 } from '@ant-design/icons';
 import ReportExportBar from '../components/ReportExportBar';
 import dayjs from 'dayjs';
@@ -14,7 +14,7 @@ import { useTheme } from '../context/ThemeContext';
 import {
   getDepartmentReport, getKasaDailyReport,
   getPendingReport, getEndOfDayReport, getHasVardiyaReport,
-  closeOperatingDay, listDayCloses, getMasterSummary,
+  listDayCloses, getMasterSummary,
 } from '../api/reports';
 import { purityLabel, matPurColorStr } from '../constants/goldCatalog';
 
@@ -303,7 +303,6 @@ const EndOfDay = ({ colors }) => {
   const [date, setDate]         = useState(dayjs());
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(false);
-  const [closing, setClosing]   = useState(false);
   const [error, setError]       = useState(null);
   const [closedDates, setClosedDates] = useState(new Set());
 
@@ -327,21 +326,6 @@ const EndOfDay = ({ colors }) => {
     finally { setLoading(false); }
   };
 
-  const handleCloseDay = async () => {
-    if (!dateStr) return;
-    setClosing(true);
-    setError(null);
-    try {
-      const res = await closeOperatingDay(dateStr);
-      message.success(`${res.archived_count} transfer arşivlendi. Transferler sayfası temizlendi.`);
-      setClosedDates(prev => new Set([...prev, dateStr]));
-    } catch (e) {
-      setError(e.message || 'Gün kapatılamadı.');
-    } finally {
-      setClosing(false);
-    }
-  };
-
   return (
     <div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20, alignItems: 'flex-end' }}>
@@ -352,31 +336,11 @@ const EndOfDay = ({ colors }) => {
         <Button type="primary" icon={<SearchOutlined />} onClick={fetch} loading={loading} disabled={!date}>
           Rapor Al
         </Button>
-        <Popconfirm
-          title="Günü kapat"
-          description={
-            <div style={{ maxWidth: 280, lineHeight: 1.6 }}>
-              Aktif transfer listesi arşivlenecek. Bekleyen transfer varsa işlem yapılmaz.
-              {isClosed && <div style={{ marginTop: 8, color: '#faad14' }}>Bu tarih daha önce kapatılmış.</div>}
-            </div>
-          }
-          onConfirm={handleCloseDay}
-          okText="Kapat"
-          cancelText="İptal"
-          disabled={!date || isClosed}
-        >
-          <Button
-            icon={<LockOutlined />}
-            loading={closing}
-            disabled={!date || isClosed}
-            danger
-          >
-            Günü Kapat
-          </Button>
-        </Popconfirm>
-        {isClosed && (
-          <Tag color="green">Bu gün kapatıldı</Tag>
-        )}
+        {isClosed
+          ? <Tag color="green" style={{ alignSelf: 'center' }}>Bu gün kapatıldı</Tag>
+          : <span style={{ color: colors.subtext, fontSize: 12, alignSelf: 'center' }}>
+              Gün kapatma → <strong>Vardiya</strong> sekmesinden yapılır.
+            </span>}
         <ReportExportBar
           data={data}
           reportType="end_of_day"
@@ -489,8 +453,8 @@ const HasVardiya = ({ colors }) => {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: 11 }}>
                     <span style={{ color: colors.subtext }}>HAS Borcu</span>
                     <span style={{ color: colors.text, fontWeight: 600 }}>{fmt(d.has_borcu)} g</span>
-                    <span style={{ color: colors.subtext }}>Güverse</span>
-                    <span style={{ color: '#52C41A', fontWeight: 600 }}>{fmt(d.guvarse_karsiligi)} g</span>
+                    <span style={{ color: colors.subtext }}>Takoz</span>
+                    <span style={{ color: '#52C41A', fontWeight: 600 }}>{fmt(d.takoz_karsiligi)} g</span>
                     <span style={{ color: colors.subtext }}>Net Fark</span>
                     <span style={{ color: Math.abs(d.net_fark) > (d.tolerance_esigi || 0) ? '#FF4D4F' : '#52C41A', fontWeight: 700, fontSize: 14 }}>
                       {fmt(d.net_fark)} g

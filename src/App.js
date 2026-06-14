@@ -9,8 +9,10 @@ import AppLayout from './layouts/AppLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Transfers from './pages/Transfers';
-import Guvarse from './pages/Guvarse';
+import Takoz from './pages/Takoz';
 import Vardiya from './pages/Vardiya';
+import Borclar from './pages/Borclar';
+import Yetkiler from './pages/Yetkiler';
 import Tolerans from './pages/Tolerans';
 import Mizan from './pages/Mizan';
 import Users from './pages/Users';
@@ -52,9 +54,19 @@ const ThemedApp = () => {
                           <GelenTransferler />
                         </ProtectedRoute>
                       } />
-                      <Route path="/guvarse" element={<Guvarse />} />
+                      <Route path="/takoz" element={<Takoz />} />
                       <Route path="/vardiya" element={<Vardiya />} />
+                      <Route path="/borclar" element={
+                        <ProtectedRoute allowedRoles={['admin', 'patron', 'fabrika_muduru']}>
+                          <Borclar />
+                        </ProtectedRoute>
+                      } />
                       <Route path="/tolerans" element={<Tolerans />} />
+                      <Route path="/yetkiler" element={
+                        <ProtectedRoute allowedRoles={['admin']}>
+                          <Yetkiler />
+                        </ProtectedRoute>
+                      } />
                       <Route path="/mizan" element={<Mizan />} />
                       <Route path="/users" element={
                         <ProtectedRoute allowedRoles={['admin', 'patron']}>
